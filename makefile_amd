@@ -1,10 +1,19 @@
-PRJHOME = /hpc/apps/motioncor3/1.1.1
-CONDA = /hpc/apps/mamba/23.1.0-3
-CUDAHOME = /hpc/apps/x86_64/cuda/12.4.0_550.54.14
+## This is a modification of the makefile in order to preprocess with the hipify tools and compile with hipcc
+##
+##
+PRJHOME = /mnt/nvme1n1p1/motioncorr3_testing/MotionCor3
+CONDA = /mnt/nvme1n1p1/motioncorr3_testing/miniconda3
+CUDAHOME = /mnt/nvme1n1p1/motioncorr3_testing/cuda
 CUDAINC = $(CUDAHOME)/include
 CUDALIB = $(CUDAHOME)/lib64
 PRJINC = $(PRJHOME)/LibSrc/Include
 PRJLIB = $(PRJHOME)/LibSrc/Lib
+# ROCM Changes
+ROCMHOME = /opt/rocm
+ROCMINC = ${ROCMHOME}/include
+ROCMLIB = ${ROCMHOME}/lib
+HIPIFY_CLANG = ${ROCMHOME}/bin/hipify-clang
+
 #-----------------------------
 CUSRCS = ./Util/GAddFrames.cu \
 	./Util/GCalcMoment2D.cu \
@@ -141,6 +150,8 @@ OBJS = $(patsubst %.cpp, %.o, $(SRCS))
 CC = g++ -std=c++11
 CFLAG = -c -g -pthread -m64
 NVCC = $(CUDAHOME)/bin/nvcc -std=c++11
+HIPIFY = ${ROCMHOME}/bin/hipify-clang
+HIPPCC = ${ROCMHOME}/bin/hipcc -std=c++11
 CUFLAG = -Xptxas -dlcm=ca -O2 \
 	-gencode arch=compute_86,code=sm_86 \
 	-gencode arch=compute_80,code=sm_80 \
@@ -150,34 +161,35 @@ CUFLAG = -Xptxas -dlcm=ca -O2 \
         -gencode arch=compute_53,code=sm_53 \
         -gencode arch=compute_60,code=sm_60 \
         -gencode arch=compute_61,code=sm_61 
+HIPFLAG = 
 #------------------------------------------
-cuda: $(CUCPPS)
+#cuda: $(CUCPPS)
 
-compile: $(OBJS)
+#compile: $(OBJS)
 
-exe: $(OBJS)
-	@$(NVCC) -g -G -m64 $(OBJS) \
-	$(PRJLIB)/libmrcfile.a $(PRJLIB)/libutil.a \
-	-L$(CUDALIB) \
-	-L$(CONDA)/lib \
-	-L/usr/lib64 \
-	-lcufft -lcudart -lcuda -lnvToolsExt -ltiff -lc -lm -lpthread \
-	-o MotionCor3
-	@echo MotionCor3 has been generated.
+#exe: $(OBJS)
+#	@$(NVCC) -g -G -m64 $(OBJS) \
+#	$(PRJLIB)/libmrcfile.a $(PRJLIB)/libutil.a \
+#	-L$(CUDALIB) \
+#	-L$(CONDA)/lib \
+#	-L/usr/lib64 \
+#	-lcufft -lcudart -lcuda -lnvToolsExt -ltiff -lc -lm -lpthread \
+#	-o MotionCor3
+#	@echo MotionCor3 has been generated.
 
-%.cpp: %.cu
-	@echo "-----------------------------------------------"
-	@$(NVCC) -cuda -cudart shared \
-		$(CUFLAG) -I$(PRJINC) \
-		-I$(CONDA)/include $< -o $@
-	@echo $< has been compiled.
+#%.cpp: %.cu
+#	@echo "-----------------------------------------------"
+#	@$(NVCC) -cuda -cudart shared \
+#		$(CUFLAG) -I$(PRJINC) \
+#		-I$(CONDA)/include $< -o $@
+#	@echo $< has been compiled.
 
-%.o: %.cpp
-	@echo "------------------------------------------------"
-	@$(CC) $(CFLAG) -I$(PRJINC) -I$(CUDAINC) \
-		-I$(CONDA)/include \
-		$< -o $@
-	@echo $< has been compiled.
+#%.o: %.cpp
+#	@echo "------------------------------------------------"
+#	@$(CC) $(CFLAG) -I$(PRJINC) -I$(CUDAINC) \
+#		-I$(CONDA)/include \
+#		$< -o $@
+#	@echo $< has been compiled.
 
 clean:
 	@rm -f $(OBJS) $(CUCPPS) *.h~ makefile~ MotionCor3
