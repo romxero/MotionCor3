@@ -10,9 +10,9 @@ PRJINC = $(PRJHOME)/LibSrc/Include
 PRJLIB = $(PRJHOME)/LibSrc/Lib
 # ROCM Changes
 ROCMHOME = /opt/rocm
-ROCMINC = ${ROCMHOME}/include
-ROCMLIB = ${ROCMHOME}/lib
-HIPIFY_CLANG = ${ROCMHOME}/bin/hipify-clang
+ROCMINC = $(ROCMHOME)/include
+ROCMLIB = $(ROCMHOME)/lib
+HIPIFY_CLANG = $(ROCMHOME)/bin/hipify-clang
 
 #-----------------------------
 CUSRCS = ./Util/GAddFrames.cu \
@@ -150,8 +150,8 @@ OBJS = $(patsubst %.cpp, %.o, $(SRCS))
 CC = g++ -std=c++11
 CFLAG = -c -g -pthread -m64
 NVCC = $(CUDAHOME)/bin/nvcc -std=c++11
-HIPIFY = ${ROCMHOME}/bin/hipify-clang
-HIPPCC = ${ROCMHOME}/bin/hipcc -std=c++11
+HIPIFY = $(ROCMHOME)/bin/hipify-clang
+HIPPCC = $(ROCMHOME)/bin/hipcc -std=c++11
 CUFLAG = -Xptxas -dlcm=ca -O2 \
 	-gencode arch=compute_86,code=sm_86 \
 	-gencode arch=compute_80,code=sm_80 \
