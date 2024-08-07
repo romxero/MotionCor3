@@ -1,9 +1,13 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CCorrectInc.h"
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <memory.h>
 #include <stdio.h>
 
@@ -59,8 +63,8 @@ void CGenRealStack::ThreadMain(void)
 {
 	s_pFrmBuffer->SetDevice(m_iNthGpu);
 	//---------------------------------
-	cudaStreamCreate(&m_aStream[0]);
-	cudaStreamCreate(&m_aStream[1]);
+	hipStreamCreate(&m_aStream[0]);
+	hipStreamCreate(&m_aStream[1]);
 	//------------------------------
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	m_pCufft2D = pBufferPool->GetInverseFFT(m_iNthGpu);
@@ -70,10 +74,10 @@ void CGenRealStack::ThreadMain(void)
 	mDoCpuFrames();
 	mDoGpuFrames();
 	//-------------
-	cudaStreamSynchronize(m_aStream[0]);
-	cudaStreamSynchronize(m_aStream[1]);
-	cudaStreamDestroy(m_aStream[0]);
-	cudaStreamDestroy(m_aStream[1]);
+	hipStreamSynchronize(m_aStream[0]);
+	hipStreamSynchronize(m_aStream[1]);
+	hipStreamDestroy(m_aStream[0]);
+	hipStreamDestroy(m_aStream[1]);
 }
 
 void CGenRealStack::mDoGpuFrames(void)
@@ -84,7 +88,7 @@ void CGenRealStack::mDoGpuFrames(void)
 	for(int i=0; i<iNumFrames; i++)
 	{	if(!s_pFrmBuffer->IsGpuFrame(m_iNthGpu, i)) continue;
 		m_iAbsFrm = i + iStartFrm;
-		cufftComplex* gCmpFrm = s_pFrmBuffer->GetFrame(m_iNthGpu, i);
+		hipfftComplex* gCmpFrm = s_pFrmBuffer->GetFrame(m_iNthGpu, i);
 		//-----------------------------------------------------------
 		mAlignFrame(gCmpFrm);
 		mCorrectBilinear(gCmpFrm);
@@ -98,7 +102,7 @@ void CGenRealStack::mDoCpuFrames(void)
 	int iCount = 0;
 	int iStartFrm = s_pFrmBuffer->GetStartFrame(m_iNthGpu);
 	int iNumFrames = s_pFrmBuffer->GetNumFrames(m_iNthGpu);
-	cufftComplex *gCmpBuf = 0L, *pCmpFrm = 0L;
+	hipfftComplex *gCmpBuf = 0L, *pCmpFrm = 0L;
 	size_t tBytes = s_pFrmBuffer->m_tFmBytes;
 	//---------------------------------------
 	for(int i=0; i<iNumFrames; i++)
@@ -109,23 +113,23 @@ void CGenRealStack::mDoCpuFrames(void)
 		pCmpFrm = s_pFrmBuffer->GetFrame(m_iNthGpu, i);
 		gCmpBuf = s_pTmpBuffer->GetFrame(m_iNthGpu, iStream);
 		//---------------------------------------------------
-		cudaMemcpyAsync(gCmpBuf, pCmpFrm, tBytes,
-			cudaMemcpyDefault, m_aStream[iStream]);
-		if(iStream == 1) cudaStreamSynchronize(m_aStream[1]);
+		hipMemcpyAsync(gCmpBuf, pCmpFrm, tBytes,
+			hipMemcpyDefault, m_aStream[iStream]);
+		if(iStream == 1) hipStreamSynchronize(m_aStream[1]);
 		//---------------------------------------------------
 		mAlignFrame(gCmpBuf);
 		mCorrectBilinear(gCmpBuf);
 		mMotionDecon(gCmpBuf);
 		m_pCufft2D->Inverse(gCmpBuf, m_aStream[0]);
-		if(iStream == 1) cudaStreamSynchronize(m_aStream[0]);
+		if(iStream == 1) hipStreamSynchronize(m_aStream[0]);
 		//---------------------------------------------------
-		cudaMemcpyAsync(pCmpFrm, gCmpBuf, tBytes,
-			cudaMemcpyDefault, m_aStream[iStream]);
+		hipMemcpyAsync(pCmpFrm, gCmpBuf, tBytes,
+			hipMemcpyDefault, m_aStream[iStream]);
 		iCount += 1;
 	}
 }
 
-void CGenRealStack::mCorrectBilinear(cufftComplex* gCmpFrm)
+void CGenRealStack::mCorrectBilinear(hipfftComplex* gCmpFrm)
 {
 	if(!s_bCorrectBilinear) return;
 	Util::GCorrLinearInterp gCorrLinearInterp;
@@ -133,7 +137,7 @@ void CGenRealStack::mCorrectBilinear(cufftComplex* gCmpFrm)
 	gCorrLinearInterp.DoIt(gCmpFrm, piCmpSize, m_aStream[0]);
 }
 
-void CGenRealStack::mAlignFrame(cufftComplex* gCmpFrm)
+void CGenRealStack::mAlignFrame(hipfftComplex* gCmpFrm)
 {
 	if(s_pStackShift == 0L) return;
 	//-----------------------------	
@@ -144,7 +148,7 @@ void CGenRealStack::mAlignFrame(cufftComplex* gCmpFrm)
 	aGPhaseShift.DoIt(gCmpFrm, piCmpSize, afShift, m_aStream[0]);
 }
 
-void CGenRealStack::mMotionDecon(cufftComplex* gCmpFrm)
+void CGenRealStack::mMotionDecon(hipfftComplex* gCmpFrm)
 {	
 	CInput* pInput = CInput::GetInstance();
      	if(pInput->m_iInFmMotion == 0) return;

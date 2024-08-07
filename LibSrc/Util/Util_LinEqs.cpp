@@ -1,3 +1,9 @@
+
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "Util_LinEqs.h"
 #include <memory.h>
 #include <math.h>

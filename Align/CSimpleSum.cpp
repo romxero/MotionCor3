@@ -1,11 +1,15 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
 #include <memory.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <nvToolsExt.h>
 
 using namespace MotionCor2;
@@ -54,14 +58,14 @@ void CSimpleSum::mCalcSum(void)
 	//----------------------------------------
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	CStackBuffer* pSumBuffer = pBufferPool->GetBuffer(EBuffer::sum);
-	cufftComplex* gCmpSum0 = pSumBuffer->GetFrame(0, 0);
-	cufftComplex* gCmpSum1 = pSumBuffer->GetFrame(0, 1);
-	cufftComplex* gCmpSum2 = pSumBuffer->GetFrame(0, 2);
+	hipfftComplex* gCmpSum0 = pSumBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpSum1 = pSumBuffer->GetFrame(0, 1);
+	hipfftComplex* gCmpSum2 = pSumBuffer->GetFrame(0, 2);
 	//--------------------------------------------------
 	CStackBuffer* pTmpBuffer = pBufferPool->GetBuffer(EBuffer::tmp);
-	cufftComplex* gCmpBuf0 = pTmpBuffer->GetFrame(0, 0);
-	cufftComplex* gCmpBuf1 = pTmpBuffer->GetFrame(0, 1);
-	cufftComplex* gCmpBuf2 = pTmpBuffer->GetFrame(0, 2);
+	hipfftComplex* gCmpBuf0 = pTmpBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpBuf1 = pTmpBuffer->GetFrame(0, 1);
+	hipfftComplex* gCmpBuf2 = pTmpBuffer->GetFrame(0, 2);
 	//--------------------------------------------------
 	pBufferPool->SetDevice(0);
 	mCropFrame(gCmpSum0, gCmpBuf0, m_pStreams[0], 0);
@@ -79,16 +83,16 @@ void CSimpleSum::mCalcSum(void)
 		gfUnpad2 = reinterpret_cast<float*>(gCmpSum2);
 		mUnpad(gCmpBuf2, gfUnpad2, m_pStreams[0]);
 	}
-	cudaStreamSynchronize(m_pStreams[0]);
+	hipStreamSynchronize(m_pStreams[0]);
 	//-----------------------------------
 	size_t tBytes = m_pPackage->m_pAlnSums->m_tFmBytes;
 	void* pvCropped = m_pPackage->m_pAlnSums->GetFrame(0);
-	cudaMemcpy(pvCropped, gfUnpad0, tBytes, cudaMemcpyDefault);
+	hipMemcpy(pvCropped, gfUnpad0, tBytes, hipMemcpyDefault);
 	if(bSplitSum)
 	{	pvCropped = m_pPackage->m_pAlnSums->GetFrame(1);
-		cudaMemcpy(pvCropped, gfUnpad1, tBytes, cudaMemcpyDefault);
+		hipMemcpy(pvCropped, gfUnpad1, tBytes, hipMemcpyDefault);
 		pvCropped = m_pPackage->m_pAlnSums->GetFrame(2);
-		cudaMemcpy(pvCropped, gfUnpad2, tBytes, cudaMemcpyDefault);
+		hipMemcpy(pvCropped, gfUnpad2, tBytes, hipMemcpyDefault);
 	}
 }
 
@@ -108,37 +112,37 @@ void CSimpleSum::mCropFrames(int iNthGpu)
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	CStackBuffer* pFrmBuffer = pBufferPool->GetBuffer(EBuffer::frm);
 	CStackBuffer* pTmpBuffer = pBufferPool->GetBuffer(EBuffer::tmp);
-	cufftComplex* gCmpBuf = pTmpBuffer->GetFrame(iNthGpu, 0);
+	hipfftComplex* gCmpBuf = pTmpBuffer->GetFrame(iNthGpu, 0);
 	//-------------------------------------------------------
 	int iNumFrames = pFrmBuffer->GetNumFrames(iNthGpu);
 	int iStartFrame = pFrmBuffer->GetStartFrame(iNthGpu);
 	pBufferPool->SetDevice(iNthGpu);
 	//------------------------------
 	for(int i=0; i<iNumFrames; i=i+1)
-	{	cufftComplex* gCmpFrm = pFrmBuffer->GetFrame(iNthGpu, i);
+	{	hipfftComplex* gCmpFrm = pFrmBuffer->GetFrame(iNthGpu, i);
 		//-------------------------------------------------------
-		cudaStream_t stream = m_pStreams[2 * iNthGpu];
+		hipStream_t stream = m_pStreams[2 * iNthGpu];
 		mCropFrame(gCmpFrm, gCmpBuf, stream, iNthGpu);
 		//--------------------------------------------
 		float* gfUnpad = reinterpret_cast<float*>(gCmpFrm);
 		mUnpad(gCmpBuf, gfUnpad, stream);
-		cudaStreamSynchronize(stream);
+		hipStreamSynchronize(stream);
 	}
 	//------------------------------------
 	DU::CMrcStack* pAlnStack = m_pPackage->m_pAlnStack;
 	for(int i=0; i<iNumFrames; i++)
-	{	cufftComplex* gCmpFrm = pFrmBuffer->GetFrame(iNthGpu, i);
+	{	hipfftComplex* gCmpFrm = pFrmBuffer->GetFrame(iNthGpu, i);
 		float* gfFrm = reinterpret_cast<float*>(gCmpFrm);
 		void* pvFrm = pAlnStack->GetFrame(iStartFrame + i);
-		cudaMemcpy(pvFrm, gfFrm, pAlnStack->m_tFmBytes, 
-		   cudaMemcpyDefault);
+		hipMemcpy(pvFrm, gfFrm, pAlnStack->m_tFmBytes, 
+		   hipMemcpyDefault);
 	}
 }
 
 void CSimpleSum::mCropFrame
-(	cufftComplex* gCmpFrm,
-	cufftComplex* gCmpBuf,
-	cudaStream_t stream,
+(	hipfftComplex* gCmpFrm,
+	hipfftComplex* gCmpBuf,
+	hipStream_t stream,
 	int iNthGpu
 )
 {	CBufferPool* pBufferPool = CBufferPool::GetInstance();
@@ -155,9 +159,9 @@ void CSimpleSum::mCropFrame
 }
 
 void CSimpleSum::mUnpad
-(	cufftComplex* gCmpPad, 
+(	hipfftComplex* gCmpPad, 
 	float* gfUnpad,
-	cudaStream_t stream
+	hipStream_t stream
 )
 { 	Util::GPad2D pad2D;
 	float* gfPad = reinterpret_cast<float*>(gCmpPad);

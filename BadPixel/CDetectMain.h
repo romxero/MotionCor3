@@ -1,4 +1,6 @@
 #pragma once
+#include <hip/hip_runtime.h>
+
 #include "../DataUtil/CDataUtilInc.h"
 
 namespace MotionCor2
@@ -30,7 +32,7 @@ public:
 	  int iOffset, 
 	  int iPartSize,
 	  float* gfPadCC,
-	  cudaStream_t stream
+	  hipStream_t stream
 	);
 private:
 	float* m_gfRef;
@@ -56,7 +58,7 @@ private:
 	float* m_gfPadCC;
 	float* m_pfMod;
 	int m_aiPadSize[2];
-	cudaStream_t m_aStream;
+	hipStream_t m_aStream;
 	int m_iNthGpu;
 };
 

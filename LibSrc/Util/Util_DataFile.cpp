@@ -1,3 +1,9 @@
+
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "Util_DataFile.h"
 #include <unistd.h>
 #include <stdio.h>

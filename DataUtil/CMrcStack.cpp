@@ -1,9 +1,13 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CDataUtilInc.h"
 #include <Mrcfile/CMrcFileInc.h>
 #include <memory.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 
 using namespace MotionCor2::DataUtil;
 

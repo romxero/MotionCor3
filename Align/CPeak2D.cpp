@@ -1,3 +1,9 @@
+
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include <stdio.h>
 #include <memory.h>

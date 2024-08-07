@@ -1,3 +1,9 @@
+
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMainInc.h"
 #include "Align/CAlignInc.h"
 #include "DataUtil/CDataUtilInc.h"
@@ -56,7 +62,7 @@ void CBufferPool::Clean(void)
 	if(m_pFrmBuffer != 0L) delete m_pFrmBuffer;
 	if(m_pXcfBuffer != 0L) delete m_pXcfBuffer;
 	if(m_pPatBuffer != 0L) delete m_pPatBuffer;
-	if(m_pvPinnedBuf != 0L) cudaFreeHost(m_pvPinnedBuf);
+	if(m_pvPinnedBuf != 0L) hipHostFree(m_pvPinnedBuf);
 	if(m_pCufft2Ds != 0L)
 	{	for(int i=0; i<m_iNumGpus; i++)
 		{	this->SetDevice(i);
@@ -179,7 +185,7 @@ Util::CCufft2D* CBufferPool::GetInverseFFT(int iNthGpu)
 void CBufferPool::SetDevice(int iNthGpu)
 {
 	if(iNthGpu >= m_iNumGpus) return;
-	cudaSetDevice(m_piGpuIDs[iNthGpu]);
+	hipSetDevice(m_piGpuIDs[iNthGpu]);
 }
 
 void CBufferPool::mCreateSumBuffer(void)
@@ -214,7 +220,7 @@ void CBufferPool::mCreateTmpBuffer(void)
 	m_pTmpBuffer->Create(aiCmpSize, iNumFrames, m_piGpuIDs, m_iNumGpus);
 	//------------------------------------------------------------------
 	size_t tBytes = m_pTmpBuffer->m_tFmBytes * m_iNumGpus;
-	cudaMallocHost(&m_pvPinnedBuf, tBytes);
+	hipHostMalloc(&m_pvPinnedBuf, tBytes, hipHostMallocDefault);
 }
 
 void CBufferPool::mCreateXcfBuffer(void)

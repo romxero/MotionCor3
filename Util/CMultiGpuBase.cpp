@@ -1,9 +1,13 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CUtilInc.h"
 #include <memory.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 
 using namespace MotionCor2::Util;
 
@@ -44,13 +48,13 @@ void CMultiGpuBase::mCreateStreams(int iStreamsPerGpu)
 	if(m_iNumGpus <= 0) return;
 	m_iStreamsPerGpu = iStreamsPerGpu;
 	//--------------------------------
-	m_pStreams = new cudaStream_t[m_iStreamsPerGpu * m_iNumGpus];
+	m_pStreams = new hipStream_t[m_iStreamsPerGpu * m_iNumGpus];
 	for(int i=0; i<m_iNumGpus; i++)
-	{	cudaSetDevice(m_piGpuIDs[i]);
+	{	hipSetDevice(m_piGpuIDs[i]);
 		int iStart = m_iStreamsPerGpu * i;
 		for(int j=0; j<m_iStreamsPerGpu; j++)
-		{	cudaStream_t stream = 0;
-			cudaStreamCreate(&stream);
+		{	hipStream_t stream = 0;
+			hipStreamCreate(&stream);
 			m_pStreams[iStart+j] = stream;
 		}
 	}
@@ -61,12 +65,12 @@ void CMultiGpuBase::mDeleteStreams(void)
 	if(m_pStreams == 0L || m_piGpuIDs == 0L) return;
 	//----------------------------------------------
 	for(int i=0; i<m_iNumGpus; i++)
-	{	cudaSetDevice(m_piGpuIDs[i]);
+	{	hipSetDevice(m_piGpuIDs[i]);
 		int iStart = m_iStreamsPerGpu * i;
 		for(int j=0; j<m_iStreamsPerGpu; j++)
 		{	int iStream = iStart + j;
-			cudaStreamSynchronize(m_pStreams[iStream]);
-			cudaStreamDestroy(m_pStreams[iStream]);
+			hipStreamSynchronize(m_pStreams[iStream]);
+			hipStreamDestroy(m_pStreams[iStream]);
 		}
 	}
 	//-----------------------------------------------------
@@ -80,7 +84,7 @@ void CMultiGpuBase::mCreateForwardFFTs(int* piSize, bool bPad)
 	//-------------------------
 	m_pForwardFFTs = new CCufft2D[m_iNumGpus];
 	for(int i=0; i<m_iNumGpus; i++)
-	{	cudaSetDevice(m_piGpuIDs[i]);
+	{	hipSetDevice(m_piGpuIDs[i]);
 		m_pForwardFFTs[i].CreateForwardPlan(piSize, bPad);
 	}
 }
@@ -89,7 +93,7 @@ void CMultiGpuBase::mDeleteForwardFFTs(void)
 {
 	if(m_pForwardFFTs == 0L) return;
 	for(int i=0; i<m_iNumGpus; i++)
-	{	cudaSetDevice(m_piGpuIDs[i]);
+	{	hipSetDevice(m_piGpuIDs[i]);
 		m_pForwardFFTs[i].DestroyPlan();
 	}
 	delete[] m_pForwardFFTs;
@@ -102,7 +106,7 @@ void CMultiGpuBase::mCreateInverseFFTs(int* piSize, bool bCmp)
 	//-------------------------
 	m_pInverseFFTs = new CCufft2D[m_iNumGpus];
 	for(int i=0; i<m_iNumGpus; i++)
-	{	cudaSetDevice(m_piGpuIDs[i]);
+	{	hipSetDevice(m_piGpuIDs[i]);
 		m_pInverseFFTs[i].CreateInversePlan(piSize, bCmp);
 	}
 }
@@ -111,7 +115,7 @@ void CMultiGpuBase::mDeleteInverseFFTs(void)
 {
 	if(m_pInverseFFTs == 0L) return;
 	for(int i=0; i<m_iNumGpus; i++)
-	{	cudaSetDevice(m_piGpuIDs[i]);
+	{	hipSetDevice(m_piGpuIDs[i]);
 		m_pInverseFFTs[i].DestroyPlan();
 	}
 	delete[] m_pInverseFFTs;

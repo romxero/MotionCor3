@@ -1,4 +1,6 @@
 #pragma once
+#include <hip/hip_runtime.h>
+
 #include <wchar.h>
 
 namespace Mrc {

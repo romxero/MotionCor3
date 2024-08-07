@@ -1,10 +1,12 @@
 #pragma once
+#include <hip/hip_runtime.h>
+
 #include "../Util/CUtilInc.h"
 #include "../DataUtil/CDataUtilInc.h"
 #include "../MotionDecon/CMotionDeconInc.h"
 #include "../Align/CAlignInc.h"
 #include <Util/Util_Thread.h>
-#include <cufft.h>
+#include <hipfft/hipfft.h>
 
 namespace MotionCor2
 {
@@ -32,15 +34,15 @@ public:
 	  float* pfFmDose,
 	  int* piStkSize,
 	  float* gfWeightSum,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 	//-------------------------------------------------
 	// Weighting is performed in Fourier space
 	//-------------------------------------------------
 	void DoIt
-	( cufftComplex* gCmpFrame,
+	( hipfftComplex* gCmpFrame,
 	  int iFrame,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 private:
 	int m_aiCmpSize[2];
@@ -74,12 +76,12 @@ public:
 private:
 	void mDoGpuFrames(void);
 	void mDoCpuFrames(void);
-	void mAlignFrame(cufftComplex* gCmpFrm);
-        void mCorrectBilinear(cufftComplex* gCmpFrm);
-	void mMotionDecon(cufftComplex* gCmpFrm);
+	void mAlignFrame(hipfftComplex* gCmpFrm);
+        void mCorrectBilinear(hipfftComplex* gCmpFrm);
+	void mMotionDecon(hipfftComplex* gCmpFrm);
 	//---------------------------------------
 	Util::CCufft2D* m_pCufft2D;
-	cudaStream_t m_aStream[2];
+	hipStream_t m_aStream[2];
 	MotionDecon::CInFrameMotion m_aInFrameMotion;
 	int m_iNthGpu;
 	int m_iAbsFrm;
@@ -109,12 +111,12 @@ protected:
 	void mInit(void);
 	void mCorrectGpuFrames(void);
 	void mCorrectCpuFrames(void);
-	void mGenSums(cufftComplex* gCmpFrm);
-	virtual void mAlignFrame(cufftComplex* gCmpFrm);
-	void mMotionDecon(cufftComplex* gCmpFrm);
-	void mDoseWeight(cufftComplex* gCmpFrm);
-	void mSum(cufftComplex* gCmpFrm, int iNthSum);
-	void mCropFrame(cufftComplex* gCmpFrm);
+	void mGenSums(hipfftComplex* gCmpFrm);
+	virtual void mAlignFrame(hipfftComplex* gCmpFrm);
+	void mMotionDecon(hipfftComplex* gCmpFrm);
+	void mDoseWeight(hipfftComplex* gCmpFrm);
+	void mSum(hipfftComplex* gCmpFrm, int iNthSum);
+	void mCropFrame(hipfftComplex* gCmpFrm);
 	void mCheckDoseWeight(void);
 	void mCheckFrameCrop(void);
 	//---------------------------
@@ -125,7 +127,7 @@ protected:
 	CStackBuffer* m_pFrmBuffer;
 	CStackBuffer* m_pSumBuffer;
 	CStackBuffer* m_pTmpBuffer;
-	cudaStream_t m_aStreams[2];
+	hipStream_t m_aStreams[2];
 	int m_iNthGpu;
 	int m_iAbsFrm;
 	static int m_aiInCmpSize[2];
@@ -148,9 +150,9 @@ public:
 protected:
 	void mCorrectCpuFrames(void);
 	void mCorrectGpuFrames(void);
-	virtual void mAlignFrame(cufftComplex* gCmpFrm);
+	virtual void mAlignFrame(hipfftComplex* gCmpFrm);
 	void mCalcMeanShift(int iStream);
-	virtual void mMotionDecon(cufftComplex* gCmpFrm);
+	virtual void mMotionDecon(hipfftComplex* gCmpFrm);
 	//-----------------------------------------------
 	static Align::CPatchShifts* m_pPatchShifts;
 	float* m_gfPatShifts;

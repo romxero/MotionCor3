@@ -1,8 +1,12 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../Util/CUtilInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <memory.h>
 #include <stdio.h>
 #include <nvToolsExt.h>
@@ -49,8 +53,8 @@ void CGenXcfStack::mDoIt(int iNthGpu)
 	m_pTmpBuffer = pBufferPool->GetBuffer(EBuffer::tmp);
 	m_pXcfBuffer = pBufferPool->GetBuffer(EBuffer::xcf);
 	//--------------------------------------------------
-	cudaStreamCreate(&m_aStreams[0]);
-	cudaStreamCreate(&m_aStreams[1]);
+	hipStreamCreate(&m_aStreams[0]);
+	hipStreamCreate(&m_aStreams[1]);
 	//-------------------------------
 	int iStartFrm = m_pXcfBuffer->GetStartFrame(m_iNthGpu);
 	int iNumFrames = m_pXcfBuffer->GetNumFrames(m_iNthGpu);
@@ -63,10 +67,10 @@ void CGenXcfStack::mDoIt(int iNthGpu)
 void CGenXcfStack::mWaitStreams(void)
 {
 	m_pFrmBuffer->SetDevice(m_iNthGpu);
-	cudaStreamSynchronize(m_aStreams[0]);
-	cudaStreamSynchronize(m_aStreams[1]);
-	cudaStreamDestroy(m_aStreams[0]);
-	cudaStreamDestroy(m_aStreams[1]);
+	hipStreamSynchronize(m_aStreams[0]);
+	hipStreamSynchronize(m_aStreams[1]);
+	hipStreamDestroy(m_aStreams[0]);
+	hipStreamDestroy(m_aStreams[1]);
 }
 
 void CGenXcfStack::mDoXcfFrame(int iXcfFrm)
@@ -78,9 +82,9 @@ void CGenXcfStack::mDoXcfFrame(int iXcfFrm)
 	   DataUtil::CStackFolder::GetInstance();
 	//------------------------------------------------	
 	size_t tBytes = m_pFrmBuffer->m_tFmBytes;
-	cudaStream_t stream = m_aStreams[m_iStream];
+	hipStream_t stream = m_aStreams[m_iStream];
 	//------------------------------------------
-	cufftComplex *gCmpXcf, *gCmpFrm, *gCmpTmp, *gCmpBuf;
+	hipfftComplex *gCmpXcf, *gCmpFrm, *gCmpTmp, *gCmpBuf;
 	gCmpXcf = m_pXcfBuffer->GetFrame(m_iNthGpu, iXcfFrm);
 	gCmpTmp = m_pTmpBuffer->GetFrame(m_iNthGpu, m_iStream);
 	gCmpFrm = m_pFrmBuffer->GetFrame(iAbsFrm);

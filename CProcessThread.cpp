@@ -1,3 +1,7 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMainInc.h"
 #include "Util/CUtilInc.h"
 #include "DataUtil/CDataUtilInc.h"
@@ -8,9 +12,9 @@
 #include <Util/Util_Time.h>
 #include <memory.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <nvToolsExt.h>
 
 using namespace MotionCor2;
@@ -30,7 +34,7 @@ CProcessThread::~CProcessThread(void)
 void CProcessThread::DoIt(void* pvNewPackage)
 {
 	CInput* pInput = CInput::GetInstance();
-	cudaSetDevice(pInput->m_piGpuIds[0]);
+	hipSetDevice(pInput->m_piGpuIds[0]);
 	m_pvPackage = pvNewPackage;
 	mProcess();
 	m_pvPackage = 0L;
@@ -49,7 +53,7 @@ void CProcessThread::ThreadMain(void)
 {
 	float fWaitTime = 0.0f;
 	CInput* pInput = CInput::GetInstance();
-	cudaSetDevice(pInput->m_piGpuIds[0]);
+	hipSetDevice(pInput->m_piGpuIds[0]);
 	//-----------------------------------
 	while(true)
 	{	int iSize = m_aProcQueue.size();

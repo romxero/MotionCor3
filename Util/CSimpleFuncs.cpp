@@ -1,7 +1,11 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CUtilInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <memory.h>
 #include <stdio.h>
 #include <assert.h>
@@ -24,7 +28,7 @@ size_t MotionCor2::Util::GetFloatBytes(int* piSize)
 
 size_t MotionCor2::Util::GetCmpBytes(int* piSize)
 {
-	size_t tBytes = sizeof(cufftComplex) * piSize[0];
+	size_t tBytes = sizeof(hipfftComplex) * piSize[0];
 	tBytes *= piSize[1];
 	return tBytes;
 }
@@ -33,8 +37,8 @@ unsigned char* MotionCor2::Util::GGetUCharBuf(int* piSize, bool bZero)
 {
 	size_t tBytes = MotionCor2::Util::GetUCharBytes(piSize);
 	unsigned char* gucBuf = 0L;
-	cudaMalloc(&gucBuf, tBytes);
-	if(bZero) cudaMemset(gucBuf, 0, tBytes);
+	hipMalloc(&gucBuf, tBytes);
+	if(bZero) hipMemset(gucBuf, 0, tBytes);
 	return gucBuf;
 }
 
@@ -50,8 +54,8 @@ float* MotionCor2::Util::GGetFloatBuf(int* piSize, bool bZero)
 {
 	size_t tBytes = MotionCor2::Util::GetFloatBytes(piSize);
 	float* gfBuf = 0L;
-	cudaMalloc(&gfBuf, tBytes);
-	if(bZero) cudaMemset(gfBuf, 0, tBytes);
+	hipMalloc(&gfBuf, tBytes);
+	if(bZero) hipMemset(gfBuf, 0, tBytes);
 	return gfBuf;
 }
 
@@ -67,7 +71,7 @@ void* MotionCor2::Util::GetPinnedBuf(int* piSize, int iPixelBytes, bool bZero)
 {
 	void* pvBuf = 0L;
 	size_t tBytes = (size_t)piSize[0] * piSize[1] * iPixelBytes;
-	cudaMallocHost(&pvBuf, tBytes);
+	hipHostMalloc(&pvBuf, tBytes, hipHostMallocDefault);
 	if(bZero) memset(pvBuf, 0, tBytes);
 	return pvBuf;
 }
@@ -76,36 +80,36 @@ void* MotionCor2::Util::GetGpuBuf(int* piSize, int iPixelBytes, bool bZero)
 {
 	void* gvBuf = 0L;
 	size_t tBytes = (size_t)piSize[0] * piSize[1] * iPixelBytes;
-	cudaMalloc(&gvBuf, tBytes);
-	if(bZero) cudaMemset(gvBuf, 0, tBytes);
+	hipMalloc(&gvBuf, tBytes);
+	if(bZero) hipMemset(gvBuf, 0, tBytes);
 	return gvBuf;
 }
 
-cufftComplex* MotionCor2::Util::GGetCmpBuf(int* piSize, bool bZero)
+hipfftComplex* MotionCor2::Util::GGetCmpBuf(int* piSize, bool bZero)
 {
 	size_t tBytes = MotionCor2::Util::GetCmpBytes(piSize);
-	cufftComplex* gCmpBuf = 0L;
-	cudaMalloc(&gCmpBuf, tBytes);
-	if(bZero) cudaMemset(gCmpBuf, 0, tBytes);
+	hipfftComplex* gCmpBuf = 0L;
+	hipMalloc(&gCmpBuf, tBytes);
+	if(bZero) hipMemset(gCmpBuf, 0, tBytes);
 	return gCmpBuf;
 }
 
-cufftComplex* MotionCor2::Util::CGetCmpBuf(int* piSize, bool bZero)
+hipfftComplex* MotionCor2::Util::CGetCmpBuf(int* piSize, bool bZero)
 {
 	int iPixels = piSize[0] * piSize[1];
-	cufftComplex* pCmpBuf = new cufftComplex[iPixels];
-	if(bZero) memset(pCmpBuf, 0, iPixels * sizeof(cufftComplex));
+	hipfftComplex* pCmpBuf = new hipfftComplex[iPixels];
+	if(bZero) memset(pCmpBuf, 0, iPixels * sizeof(hipfftComplex));
 	return pCmpBuf;
 }
 
-unsigned char* MotionCor2::Util::GCopyFrame(unsigned char* pucSrc, int* piSize, cudaStream_t stream)
+unsigned char* MotionCor2::Util::GCopyFrame(unsigned char* pucSrc, int* piSize, hipStream_t stream)
 {
 	unsigned char* gucDst = MotionCor2::Util::GGetUCharBuf(piSize, false);
 	MotionCor2::Util::CopyFrame(pucSrc, gucDst, piSize, stream);
 	return gucDst;
 }
 
-unsigned char* MotionCor2::Util::CCopyFrame(unsigned char* pucSrc, int* piSize, cudaStream_t stream)
+unsigned char* MotionCor2::Util::CCopyFrame(unsigned char* pucSrc, int* piSize, hipStream_t stream)
 {
 	unsigned char* pucDst = MotionCor2::Util::CGetUCharBuf(piSize, false);
 	MotionCor2::Util::CopyFrame(pucSrc, pucDst, piSize, stream);
@@ -113,57 +117,57 @@ unsigned char* MotionCor2::Util::CCopyFrame(unsigned char* pucSrc, int* piSize, 
 }
 
 void MotionCor2::Util::CopyFrame(unsigned char* pucSrc, 
-	unsigned char* pucDst, int* piSize, cudaStream_t stream)
+	unsigned char* pucDst, int* piSize, hipStream_t stream)
 {
 	size_t tBytes = sizeof(char) * piSize[0] * piSize[1];
-	cudaMemcpyAsync(pucDst, pucSrc, tBytes, cudaMemcpyDefault, stream);
+	hipMemcpyAsync(pucDst, pucSrc, tBytes, hipMemcpyDefault, stream);
 }
 
-float* MotionCor2::Util::GCopyFrame(float* pfSrc, int* piSize, cudaStream_t stream)
+float* MotionCor2::Util::GCopyFrame(float* pfSrc, int* piSize, hipStream_t stream)
 {
 	float* gfDst = MotionCor2::Util::GGetFloatBuf(piSize, false);
 	MotionCor2::Util::CopyFrame(pfSrc, gfDst, piSize, stream);
 	return gfDst;
 }
 
-float* MotionCor2::Util::CCopyFrame(float* pfSrc, int* piSize, cudaStream_t stream)
+float* MotionCor2::Util::CCopyFrame(float* pfSrc, int* piSize, hipStream_t stream)
 {
         float* pfDst = MotionCor2::Util::CGetFloatBuf(piSize, false);
 	MotionCor2::Util::CopyFrame(pfSrc, pfDst, piSize, stream);
         return pfDst;
 }
 
-void MotionCor2::Util::CopyFrame(float* pfSrc, float* pfDst, int* piSize, cudaStream_t stream)
+void MotionCor2::Util::CopyFrame(float* pfSrc, float* pfDst, int* piSize, hipStream_t stream)
 {       
 	size_t tBytes = sizeof(float) * piSize[0] * piSize[1];
-        cudaMemcpyAsync(pfDst, pfSrc, tBytes, cudaMemcpyDefault, stream);
+        hipMemcpyAsync(pfDst, pfSrc, tBytes, hipMemcpyDefault, stream);
 }
 
-cufftComplex* MotionCor2::Util::GCopyFrame(cufftComplex* pCmpSrc, int* piSize, cudaStream_t stream)
+hipfftComplex* MotionCor2::Util::GCopyFrame(hipfftComplex* pCmpSrc, int* piSize, hipStream_t stream)
 {
-	cufftComplex* gCmpDst = MotionCor2::Util::GGetCmpBuf(piSize, false);
+	hipfftComplex* gCmpDst = MotionCor2::Util::GGetCmpBuf(piSize, false);
 	MotionCor2::Util::CopyFrame(pCmpSrc, gCmpDst, piSize, stream);
 	return gCmpDst;
 }
 
-cufftComplex* MotionCor2::Util::CCopyFrame(cufftComplex* pCmpSrc, int* piSize, cudaStream_t stream)
+hipfftComplex* MotionCor2::Util::CCopyFrame(hipfftComplex* pCmpSrc, int* piSize, hipStream_t stream)
 {
-	cufftComplex* pCmpDst = MotionCor2::Util::CGetCmpBuf(piSize, false);
+	hipfftComplex* pCmpDst = MotionCor2::Util::CGetCmpBuf(piSize, false);
 	MotionCor2::Util::CopyFrame(pCmpSrc, pCmpDst, piSize, stream);
 	return pCmpDst;
 }
 
-void MotionCor2::Util::CopyFrame(cufftComplex* pCmpSrc,
-	cufftComplex* pCmpDst, int* piSize, cudaStream_t stream)
+void MotionCor2::Util::CopyFrame(hipfftComplex* pCmpSrc,
+	hipfftComplex* pCmpDst, int* piSize, hipStream_t stream)
 {
-	size_t tBytes = sizeof(cufftComplex) * piSize[0] * piSize[1];
-	cudaMemcpyAsync(pCmpDst, pCmpSrc, tBytes, cudaMemcpyDefault, stream);
+	size_t tBytes = sizeof(hipfftComplex) * piSize[0] * piSize[1];
+	hipMemcpyAsync(pCmpDst, pCmpSrc, tBytes, hipMemcpyDefault, stream);
 }
 
 size_t MotionCor2::Util::GetGpuMemory(int iGpuId)
 {	
-	cudaDeviceProp aDeviceProp;
-	cudaGetDeviceProperties(&aDeviceProp, iGpuId);
+	hipDeviceProp_t aDeviceProp;
+	hipGetDeviceProperties(&aDeviceProp, iGpuId);
 	return aDeviceProp.totalGlobalMem;
 }
 
@@ -181,7 +185,7 @@ int MotionCor2::Util::CalcNumGpuFrames
 void MotionCor2::Util::PrintGpuMemoryUsage(const char* pcInfo)
 {
 	size_t tTotal = 0, tFree = 0;
-	cudaError_t tErr = cudaMemGetInfo(&tFree, &tTotal);
+	hipError_t tErr = hipMemGetInfo(&tFree, &tTotal);
 	//-------------------------------------------------
 	tTotal /= (1024 * 1024);
 	tFree /= (1024 * 1024);
@@ -195,19 +199,19 @@ void MotionCor2::Util::PrintGpuMemoryUsage(const char* pcInfo)
 float MotionCor2::Util::GetGpuMemoryUsage(void)
 {
 	size_t tTotal = 0, tFree = 0;
-	cudaError_t tErr = cudaMemGetInfo(&tFree, &tTotal);
+	hipError_t tErr = hipMemGetInfo(&tFree, &tTotal);
 	double dUsed = 1.0 - tFree * 1.0 / tTotal;
 	return (float)dUsed;
 }
 
 void MotionCor2::Util::CheckCudaError(const char* pcLocation)
 {
-	cudaError_t cuErr = cudaGetLastError();
-	if(cuErr == cudaSuccess) return;
+	hipError_t cuErr = hipGetLastError();
+	if(cuErr == hipSuccess) return;
 	//------------------------------
 	fprintf(stderr, "%s: %s\n\t\n\n", pcLocation,
-		cudaGetErrorString(cuErr));
-	cudaDeviceReset();
+		hipGetErrorString(cuErr));
+	hipDeviceReset();
 	assert(0);
 }
 

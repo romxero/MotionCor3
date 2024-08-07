@@ -1,9 +1,13 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <memory.h>
 #include <stdio.h>
 #include <nvToolsExt.h>
@@ -75,20 +79,20 @@ void CTransformStack::ThreadMain(void)
 		m_pCufft2D->CreateInversePlan(piCmpSize, true);
 	}
 	//-----------------------------------------------------
-	cudaStreamCreate(&m_aStreams[0]);
-	cudaStreamCreate(&m_aStreams[1]);
+	hipStreamCreate(&m_aStreams[0]);
+	hipStreamCreate(&m_aStreams[1]);
 	//-------------------------------
 	mTransformCpuFrames();
 	mTransformGpuFrames();
 	//--------------------
-	cudaDeviceSynchronize();
-	cudaStreamDestroy(m_aStreams[0]);
-	cudaStreamDestroy(m_aStreams[1]);
+	hipDeviceSynchronize();
+	hipStreamDestroy(m_aStreams[0]);
+	hipStreamDestroy(m_aStreams[1]);
 }
 
 void CTransformStack::mTransformGpuFrames(void)
 {
-	cufftComplex* gCmpFrm = 0L;
+	hipfftComplex* gCmpFrm = 0L;
 	int iNumFrames = m_pFrmBuffer->GetNumFrames(m_iNthGpu);
 	for(int i=0; i<iNumFrames; i++)
 	{	if(!m_pFrmBuffer->IsGpuFrame(m_iNthGpu, i)) continue;
@@ -100,7 +104,7 @@ void CTransformStack::mTransformGpuFrames(void)
 void CTransformStack::mTransformCpuFrames(void)
 {
 	int iCount = 0;
-	cufftComplex *pCmpFrm, *gCmpBuf;
+	hipfftComplex *pCmpFrm, *gCmpBuf;
 	size_t tBytes = m_pFrmBuffer->m_tFmBytes;
 	int iNumFrames = m_pFrmBuffer->GetNumFrames(m_iNthGpu);
 	//-----------------------------------------------------
@@ -110,20 +114,20 @@ void CTransformStack::mTransformCpuFrames(void)
 		pCmpFrm = m_pFrmBuffer->GetFrame(m_iNthGpu, i);
 		gCmpBuf = m_pTmpBuffer->GetFrame(m_iNthGpu, iStream);
 		//---------------------------------------------------
-		cudaMemcpyAsync(gCmpBuf, pCmpFrm, tBytes, 
-			cudaMemcpyDefault, m_aStreams[iStream]);
-		if(iStream == 1) cudaStreamSynchronize(m_aStreams[1]);
+		hipMemcpyAsync(gCmpBuf, pCmpFrm, tBytes, 
+			hipMemcpyDefault, m_aStreams[iStream]);
+		if(iStream == 1) hipStreamSynchronize(m_aStreams[1]);
 		//----------------------------------------------------
 		mTransformFrame(gCmpBuf);
-		if(iStream == 1) cudaStreamSynchronize(m_aStreams[0]);
+		if(iStream == 1) hipStreamSynchronize(m_aStreams[0]);
 		//----------------------------------------------------
-		cudaMemcpyAsync(pCmpFrm, gCmpBuf, tBytes,
-			cudaMemcpyDefault, m_aStreams[iStream]);
+		hipMemcpyAsync(pCmpFrm, gCmpBuf, tBytes,
+			hipMemcpyDefault, m_aStreams[iStream]);
 		iCount += 1;
 	}
 }
 
-void CTransformStack::mTransformFrame(cufftComplex* gCmpFrm) 
+void CTransformStack::mTransformFrame(hipfftComplex* gCmpFrm) 
 {
 	if(s_bForward)
 	{	float* gfPadFrm = reinterpret_cast<float*>(gCmpFrm);

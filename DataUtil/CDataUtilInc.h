@@ -3,7 +3,7 @@
 #include <Util/Util_Thread.h>
 #include <Mrcfile/CMrcFileInc.h>
 #include <queue>
-#include <cuda.h>
+#include <hip/hip_runtime.h>
 
 namespace MotionCor2
 {

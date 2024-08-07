@@ -1,4 +1,6 @@
 #pragma once
+#include <hip/hip_runtime.h>
+
 
 //-------------------------------------------------------------------
 // 1. This is the base class that must be implemented for the

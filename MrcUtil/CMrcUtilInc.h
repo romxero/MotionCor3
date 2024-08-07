@@ -3,7 +3,7 @@
 #include "../DataUtil/CDataUtilInc.h"
 #include <Util/Util_Thread.h>
 #include <Mrcfile/CMrcFileInc.h>
-#include <cuda.h>
+#include <hip/hip_runtime.h>
 
 namespace MotionCor2
 {
@@ -143,38 +143,38 @@ public:
 	( unsigned char* gucPkdFrm,
 	  unsigned char* gucRawFrm,
 	  int* piFrmSize,
-	  cudaStream_t stream=0
+	  hipStream_t stream=0
 	);
 	void DoIt
 	( void* gvFrame, 
 	  int iMrcMode, 
 	  float* gfFrame,
-	  cudaStream_t stream=0
+	  hipStream_t stream=0
 	);
 	void DoRaw
 	( unsigned char* gucRawFrm, 
 	  float* gfFrame,
-	  cudaStream_t stream=0
+	  hipStream_t stream=0
 	);
 	void DoPkd
 	( unsigned char* gucPkdFrm, 
 	  float* gfFrame,
-	  cudaStream_t stream=0
+	  hipStream_t stream=0
 	);
 	void DoShort
 	( short* gsFrm, 
 	  float* gfFrame,
-	  cudaStream_t stream=0
+	  hipStream_t stream=0
 	);
 	void DoUShort
 	( unsigned short* gusFrm, 
 	  float* gfFrame,
-	  cudaStream_t stream=0
+	  hipStream_t stream=0
 	);
 	void DoFloat
 	( float* gfInFrm, 
 	  float* gfOutFrm, 
-	  cudaStream_t stream=0
+	  hipStream_t stream=0
 	);
 private:
 	int m_aiMrcSize[2];
@@ -201,13 +201,13 @@ private:
 	void mCopyRefs(void);
 	void mCorrectGpuFrames(void);
 	void mCorrectCpuFrames(void); 
-	void mApplyRefs(cufftComplex* gCmpFrm, int iStream);
+	void mApplyRefs(hipfftComplex* gCmpFrm, int iStream);
 	//--------------------------------------------------
 	int m_iNthGpu;
 	float* m_gfGain;
 	float* m_gfDark;
 	int m_iAbsFrame;
-	cudaStream_t m_aStreams[2];
+	hipStream_t m_aStreams[2];
 	void* m_pvMrcFrames[2];
 	GApplyRefsToFrame m_aGAppRefsToFrame;
 };
@@ -282,7 +282,7 @@ private:
 	//-----------------------
 	int m_iNthGpu;
 	int m_iStartFrm;
-	cudaStream_t m_aStreams[2];
+	hipStream_t m_aStreams[2];
 };
 
 class CSaveSingleCryoEM

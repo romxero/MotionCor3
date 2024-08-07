@@ -1,3 +1,9 @@
+
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CDataUtilInc.h"
 #include "../CMainInc.h"
 #include "../FindCtf/CFindCtfInc.h"

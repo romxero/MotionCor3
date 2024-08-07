@@ -5,6 +5,8 @@
 //
 //=============================================================================
 #pragma once
+#include <hip/hip_runtime.h>
+
 #include <pthread.h>
 
 class Util_Thread

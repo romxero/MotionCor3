@@ -1,6 +1,6 @@
 #pragma once
 #include <tiffio.h>
-#include <cuda.h>
+#include <hip/hip_runtime.h>
 #include "../DataUtil/CDataUtilInc.h"
 #include <Util/Util_Thread.h>
 
@@ -18,7 +18,7 @@ public:
 	  unsigned char* gucFrm2,
 	  unsigned char* gucSum,
 	  unsigned int uiPixels,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 };
 

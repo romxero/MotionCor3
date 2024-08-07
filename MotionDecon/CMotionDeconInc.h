@@ -1,9 +1,11 @@
 #pragma once
+#include <hip/hip_runtime.h>
+
 #include "../Util/CUtilInc.h"
 #include "../MrcUtil/CMrcUtilInc.h"
 #include "../Align/CAlignInc.h"
 #include <stdio.h>
-#include <cufft.h>
+#include <hipfft/hipfft.h>
 
 namespace MotionCor2
 {
@@ -23,26 +25,26 @@ public:
 	);
 	void DirWeightFrame
 	(  int iFrame,
-	   cufftComplex* pCmpFrm,
+	   hipfftComplex* pCmpFrm,
 	   bool bGpu
 	);
 	void WeightFrame
 	(  float fShift,
-	   cufftComplex* pCmpFrm,
+	   hipfftComplex* pCmpFrm,
 	   bool bGpu,
 	   int* piCmpSize
 	);
 	int m_aiCmpSize[2];
 	int m_iNumFrames;
 private:
-	cufftComplex* mH2D
-	(  cufftComplex* pCmpFrm,
+	hipfftComplex* mH2D
+	(  hipfftComplex* pCmpFrm,
 	   bool bGpu,
 	   int* piCmpSize
 	);
 	void mD2H
-	(  cufftComplex* gCmpFrm,
-	   cufftComplex* pCmpFrm,
+	(  hipfftComplex* gCmpFrm,
+	   hipfftComplex* pCmpFrm,
 	   bool bGpu,
 	   int* piCmpSize
 	);
@@ -57,15 +59,15 @@ public:
 	~GMotionWeight(void);
 	void DirWeight
 	( float* pfMotion,
-	  cufftComplex* pCmpFrm,
+	  hipfftComplex* pCmpFrm,
 	  int* piCmpSize,
-          cudaStream_t stream=0
+          hipStream_t stream=0
 	);
 	void Weight
 	( float fMotion,
-	  cufftComplex* pCmpFrm,
+	  hipfftComplex* pCmpFrm,
 	  int* piCmpSize,
-          cudaStream_t stream=0
+          hipStream_t stream=0
 	);
 };
 
@@ -78,15 +80,15 @@ public:
 	void SetPatchShifts(Align::CPatchShifts* pPatchShifts);
 	void DoFullMotion
 	( int iFrame,
-	  cufftComplex* pCmpFrm,
+	  hipfftComplex* pCmpFrm,
 	  int* piCmpSize,
-          cudaStream_t stream=0
+          hipStream_t stream=0
 	);
 	void DoLocalMotion
 	( int iFrame,
-	  cufftComplex* pCmpFrm,
+	  hipfftComplex* pCmpFrm,
 	  int* piCmpSize,
-          cudaStream_t stream=0
+          hipStream_t stream=0
 	);
 	void GetFullMotion
 	( int iFrame,

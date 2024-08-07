@@ -1,3 +1,9 @@
+
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMainInc.h"
 #include "Align/CAlignInc.h"
 #include "Util/CUtilInc.h"

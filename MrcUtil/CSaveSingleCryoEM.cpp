@@ -1,9 +1,13 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMrcUtilInc.h"
 #include "../CMainInc.h"
 #include <stdio.h>
 #include <memory.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 #include <Util/Util_Time.h>
 
 using namespace MotionCor2;
@@ -51,8 +55,8 @@ void CSaveSingleCryoEM::DoIt
 	aTimer.Measure();
 	//---------------
 	CInput* pInput = CInput::GetInstance();
-	cudaSetDevice(pInput->m_piGpuIds[0]);
-	cudaMalloc(&m_gfImg, pAlnSums->m_tFmBytes);
+	hipSetDevice(pInput->m_piGpuIds[0]);
+	hipMalloc(&m_gfImg, pAlnSums->m_tFmBytes);
 	//-----------------------------------------
 	Util::GFindMinMax2D* pGFindMinMax = new Util::GFindMinMax2D;
 	Util::GCalcMoment2D* pGCalcMoment = new Util::GCalcMoment2D;
@@ -79,7 +83,7 @@ void CSaveSingleCryoEM::DoIt
 	mSave(m_acMrcFileStk, pAlnStack);
 	if(pAlnStack != 0L) delete pAlnStack;
 	//-----------------------------------
-	if(m_gfImg != 0L) cudaFree(m_gfImg);
+	if(m_gfImg != 0L) hipFree(m_gfImg);
 	m_gfImg = 0L;
 	delete pGFindMinMax; m_pvGFindMinMax2D = 0L;
 	delete pGCalcMoment; m_pvGCalcMoment2D = 0L;
@@ -101,7 +105,7 @@ void CSaveSingleCryoEM::mSave
 	aSaveMrc.SetExtHeader(0, 0, 0);
 	//-----------------------------
 	size_t tBytes = sizeof(float) * piImgSize[0] * piImgSize[1];
-	cudaMemcpy(m_gfImg, pfImg, tBytes, cudaMemcpyDefault);
+	hipMemcpy(m_gfImg, pfImg, tBytes, hipMemcpyDefault);
 	//----------------------------------------------------
 	Util::GFindMinMax2D* pGFindMinMax = (Util::GFindMinMax2D*)
 	   m_pvGFindMinMax2D;
@@ -142,8 +146,8 @@ void CSaveSingleCryoEM::mSave
 	//-----------------
 	for(int i=0; i<pMrcStack->m_aiStkSize[2]; i++)
 	{	void* pvFrame = pMrcStack->GetFrame(i);
-		cudaMemcpy(m_gfImg, pvFrame, pMrcStack->m_tFmBytes,
-		   cudaMemcpyDefault);
+		hipMemcpy(m_gfImg, pvFrame, pMrcStack->m_tFmBytes,
+		   hipMemcpyDefault);
 		float ffMin = pGFindMinMax->DoMin(m_gfImg, true);
 		float ffMax = pGFindMinMax->DoMax(m_gfImg, true);
 		float ffMean = pGCalcMoment->DoIt(m_gfImg, 1, true);

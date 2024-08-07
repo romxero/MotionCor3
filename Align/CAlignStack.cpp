@@ -1,10 +1,14 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../Util/CUtilInc.h"
 #include <memory.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 
 using namespace MotionCor2;
 using namespace MotionCor2::Align;
@@ -28,15 +32,15 @@ void CAlignStack::Set1(int iNthGpu)
 	else mDestroyStreams();
 	//---------------------
 	int iCurGpu = -1;
-	cudaGetDevice(&iCurGpu);	
+	hipGetDevice(&iCurGpu);	
 	//----------------------
 	m_iNthGpu = iNthGpu;
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	pBufferPool->SetDevice(m_iNthGpu);
-	cudaStreamCreate(&m_aStreams[0]);
-	cudaStreamCreate(&m_aStreams[1]);
+	hipStreamCreate(&m_aStreams[0]);
+	hipStreamCreate(&m_aStreams[1]);
 	//-------------------------------
-	if(iCurGpu >= 0) cudaSetDevice(iCurGpu);
+	if(iCurGpu >= 0) hipSetDevice(iCurGpu);
 }
 
 void CAlignStack::Set2(EBuffer eBuffer, DU::CFmGroupParam* pFmGroupParam)
@@ -52,7 +56,7 @@ void CAlignStack::Set2(EBuffer eBuffer, DU::CFmGroupParam* pFmGroupParam)
 	   + m_aiGpuFmRange[0] - 1;
 	//----------------------------------------------------------
 	int iCurGpu = -1;
-	cudaGetDevice(&iCurGpu);
+	hipGetDevice(&iCurGpu);
 	m_pFrmBuffer->SetDevice(m_iNthGpu);
 	//---------------------------------
 	int* piCmpSize = m_pFrmBuffer->m_aiCmpSize;
@@ -71,7 +75,7 @@ void CAlignStack::Set2(EBuffer eBuffer, DU::CFmGroupParam* pFmGroupParam)
 	{	m_pbGpuGroups[i] = mCheckGpuGroup(i);
 	}
 	//-------------------------------------------
-	if(iCurGpu >= 0) cudaSetDevice(iCurGpu);
+	if(iCurGpu >= 0) hipSetDevice(iCurGpu);
 }
 
 void CAlignStack::Set3(float fBFactor, bool bPhaseOnly)
@@ -90,10 +94,10 @@ void CAlignStack::DoIt(CStackShift* pStackShift, CStackShift* pGroupShift)
 	m_gCmpSum = pSumBuffer->GetFrame(m_iNthGpu, 0);
 	if(m_iNthGpu != 0)
 	{	size_t tBytes = m_pFrmBuffer->m_tFmBytes;
-		cufftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
-		cudaMemcpyAsync(m_gCmpSum, gCmpSum, tBytes, 
-		   cudaMemcpyDefault, m_aStreams[0]);
-		cudaStreamSynchronize(m_aStreams[0]);
+		hipfftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
+		hipMemcpyAsync(m_gCmpSum, gCmpSum, tBytes, 
+		   hipMemcpyDefault, m_aStreams[0]);
+		hipStreamSynchronize(m_aStreams[0]);
 	}
 	//---------------------------------------------------
 	m_fErr = 0.0f;
@@ -107,9 +111,9 @@ void CAlignStack::WaitStreams(void)
 	//--------------------------------
 	char acBuf[64];
 	sprintf(acBuf, "CAlignStack: aaa %d", m_iNthGpu);
-	cudaStreamSynchronize(m_aStreams[0]);
+	hipStreamSynchronize(m_aStreams[0]);
 	Util::CheckCudaError(acBuf);
-	cudaStreamSynchronize(m_aStreams[1]);
+	hipStreamSynchronize(m_aStreams[1]);
 	Util::CheckCudaError("CAlignStack: bbb");
 	mFindPeaks();
 	Util::CheckCudaError("CAlignStack: ccc");
@@ -159,18 +163,18 @@ void CAlignStack::mPhaseShift(int iStream, bool bSum)
 {
 	float afShift[2] = {0.0f};
 	m_pStackShift->GetShift(m_iAbsFrm, afShift, -1.0f);
-	cufftComplex* gCmpFrm = m_pFrmBuffer->GetFrame(m_iAbsFrm);
-	cufftComplex* gCmpTmp = m_pTmpBuffer->GetFrame(m_iNthGpu, iStream);
+	hipfftComplex* gCmpFrm = m_pFrmBuffer->GetFrame(m_iAbsFrm);
+	hipfftComplex* gCmpTmp = m_pTmpBuffer->GetFrame(m_iNthGpu, iStream);
 	Util::GPhaseShift2D phaseShift;
 	//-----------------------------
-	cufftComplex* gCmpIn = gCmpFrm;
+	hipfftComplex* gCmpIn = gCmpFrm;
 	if(m_iAbsFrm < m_aiGpuFmRange[0] ||
 	   m_iAbsFrm > m_aiGpuFmRange[1])
 	{	int iCmpSize = m_pFrmBuffer->m_aiCmpSize[0] *
 		   m_pFrmBuffer->m_aiCmpSize[1];
 		gCmpIn = gCmpTmp + iCmpSize;
-		cudaMemcpyAsync(gCmpIn, gCmpFrm, m_pFrmBuffer->m_tFmBytes,
-		   cudaMemcpyDefault, m_aStreams[iStream]);
+		hipMemcpyAsync(gCmpIn, gCmpFrm, m_pFrmBuffer->m_tFmBytes,
+		   hipMemcpyDefault, m_aStreams[iStream]);
 	}
 	//-------------------------------------------------
 	phaseShift.DoIt(gCmpIn, m_pFrmBuffer->m_aiCmpSize,
@@ -186,7 +190,7 @@ void CAlignStack::mCorrelate
 	float* pfPinnedBuf = (float*)pBufferPool->GetPinnedBuf(m_iNthGpu);
 	float* pfXcfBuf = pfPinnedBuf + iSeaSize * iGroup;
 	//----------------------------------------------------------------
-	cufftComplex* gCmpTmp = m_pTmpBuffer->GetFrame(m_iNthGpu, iStream);
+	hipfftComplex* gCmpTmp = m_pTmpBuffer->GetFrame(m_iNthGpu, iStream);
 	m_aGCorrelateSum.DoIt(m_gCmpSum, gCmpTmp, pfXcfBuf,
 	   m_pInverseFFT, m_aStreams[iStream]);
 }
@@ -219,12 +223,12 @@ void CAlignStack::mDestroyStreams(void)
 	if(m_iNthGpu < 0) return;
 	//-----------------------
 	int iCurGpu = -1;
-	cudaGetDevice(&iCurGpu);
+	hipGetDevice(&iCurGpu);
 	//----------------------
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	pBufferPool->SetDevice(m_iNthGpu);
-	cudaStreamDestroy(m_aStreams[0]);
-	cudaStreamDestroy(m_aStreams[1]);
+	hipStreamDestroy(m_aStreams[0]);
+	hipStreamDestroy(m_aStreams[1]);
 	//-------------------------------
-	if(iCurGpu >= 0) cudaSetDevice(iCurGpu);
+	if(iCurGpu >= 0) hipSetDevice(iCurGpu);
 }

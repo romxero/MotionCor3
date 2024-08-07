@@ -1,6 +1,10 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CUtilInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 #include <memory.h>
 #include <stdio.h>
 
@@ -84,7 +88,7 @@ void CPad2D::Pad(float* pfImg, int* piImgSize, float* pfPad)
 	for(int y=0; y<piImgSize[1]; y++)
 	{	float* pfSrc = pfImg + y * piImgSize[0];
 		float* pfDst = pfPad + y * iPadX;
-		cudaMemcpy(pfDst, pfSrc, iBytes, cudaMemcpyDefault);
+		hipMemcpy(pfDst, pfSrc, iBytes, hipMemcpyDefault);
 	}
 }
 
@@ -110,7 +114,7 @@ void CPad2D::Unpad(float* pfPad, int* piPadSize, float* pfImg)
 	for(int y=0; y<piPadSize[1]; y++)
 	{	float* pfSrc = pfPad + y * piPadSize[0];
 		float* pfDst = pfImg + y * iImageX;
-		cudaMemcpy(pfDst, pfSrc, iBytes, cudaMemcpyDefault);
+		hipMemcpy(pfDst, pfSrc, iBytes, hipMemcpyDefault);
 	}
 }
 

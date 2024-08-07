@@ -1,8 +1,12 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CEerUtilInc.h"
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 #include <memory.h>
 #include <stdio.h>
 

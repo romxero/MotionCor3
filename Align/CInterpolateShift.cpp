@@ -1,3 +1,7 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
@@ -5,9 +9,9 @@
 #include <memory.h>
 #include <stdio.h>
 #include <math.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 
 using namespace MotionCor2;
 using namespace MotionCor2::Align;

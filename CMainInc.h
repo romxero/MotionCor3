@@ -1,11 +1,13 @@
 #pragma once
+#include <hip/hip_runtime.h>
+
 #include "Util/CUtilInc.h"
 #include "DataUtil/CDataUtilInc.h"
 #include "MrcUtil/CMrcUtilInc.h"
 #include "TiffUtil/CTiffFileInc.h"
 #include <Util/Util_Thread.h>
 #include <stdio.h>
-#include <cufft.h>
+#include <hipfft/hipfft.h>
 
 namespace MotionCor2 
 {
@@ -221,8 +223,8 @@ public:
 	//---------------------------------------
 	// iFrame = 0 is the 1st frame on iNthGpu
 	//---------------------------------------	
-	cufftComplex* GetFrame(int iNthGpu, int iFrame);
-	cufftComplex* GetFrame(int iAbsFrame);
+	hipfftComplex* GetFrame(int iNthGpu, int iFrame);
+	hipfftComplex* GetFrame(int iAbsFrame);
 	//------------------------------------
 	int GetFrameGpu(int iFrame);
 	void SetDevice(int iNthGpu);

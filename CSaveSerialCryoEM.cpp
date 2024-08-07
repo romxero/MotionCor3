@@ -1,10 +1,14 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMainInc.h"
 #include "DataUtil/CDataUtilInc.h"
 #include "FindCtf/CFindCtfInc.h"
 #include <stdio.h>
 #include <memory.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 
 using namespace MotionCor2;
 namespace DU = MotionCor2::DataUtil;
@@ -72,7 +76,7 @@ void CSaveSerialCryoEM::AsyncSave(DU::CDataPackage* pPackage)
 void CSaveSerialCryoEM::ThreadMain(void)
 {
 	CInput* pInput = CInput::GetInstance();
-	cudaSetDevice(pInput->m_piGpuIds[0]);
+	hipSetDevice(pInput->m_piGpuIds[0]);
 	//-----------------------------------
 	float fWaitTime = 0.0f;
 	while(true)
@@ -104,7 +108,7 @@ void CSaveSerialCryoEM::ThreadMain(void)
 
 void CSaveSerialCryoEM::mInit(void)
 {
-	cudaMalloc(&m_gfImg, m_pPackage->m_pAlnSums->m_tFmBytes);
+	hipMalloc(&m_gfImg, m_pPackage->m_pAlnSums->m_tFmBytes);
 	Util::GFindMinMax2D* pGFindMinMax = new Util::GFindMinMax2D;
         Util::GCalcMoment2D* pGCalcMoment = new Util::GCalcMoment2D;
 	pGFindMinMax->SetSize(m_pPackage->m_pAlnSums->m_aiStkSize, false);
@@ -116,7 +120,7 @@ void CSaveSerialCryoEM::mInit(void)
 void CSaveSerialCryoEM::mClean(void)
 {
 	if(m_gfImg == 0L) return;
-	cudaFree(m_gfImg); m_gfImg = 0L;
+	hipFree(m_gfImg); m_gfImg = 0L;
         delete (Util::GFindMinMax2D*)m_pvGFindMinMax2D;
 	m_pvGFindMinMax2D = 0L;
         delete (Util::GCalcMoment2D*)m_pvGCalcMoment2D;
@@ -163,8 +167,8 @@ void CSaveSerialCryoEM::mSaveStack(void)
 	   1, pAlnStack->m_fPixSize);
 	aSaveMrc.SetExtHeader(0, 32, 0);
 	//------------------------------
-	cudaStream_t stream;
-	cudaStreamCreate(&stream);
+	hipStream_t stream;
+	hipStreamCreate(&stream);
 	//------------------------
 	Util::GFindMinMax2D *pGFindMin = 0L, *pGFindMax = 0L;
 	pGFindMin = (Util::GFindMinMax2D*)m_pvGFindMinMax2D;
@@ -180,15 +184,15 @@ void CSaveSerialCryoEM::mSaveStack(void)
 	int iLast = iNumFrames - 1;
 	for(int i=0; i<iNumFrames; i++)
 	{	void* pvFrame = pAlnStack->GetFrame(i);
-		cudaMemcpy(m_gfImg, pvFrame, pAlnStack->m_tFmBytes,
-                   cudaMemcpyDefault);
+		hipMemcpy(m_gfImg, pvFrame, pAlnStack->m_tFmBytes,
+                   hipMemcpyDefault);
                 pGFindMin->DoMin(m_gfImg, false, stream);
                 pGFindMax->DoMax(m_gfImg, false, stream);
                 pGCalcMoment->DoIt(m_gfImg, 1, false);
                 //------------------------------------
                 aSaveMrc.m_pSaveExt->SetPixelSize(i, pAlnStack->m_fPixSize);
 		aSaveMrc.DoIt(i, pvFrame);
-		cudaStreamSynchronize(stream);
+		hipStreamSynchronize(stream);
 		//----------------------------
 		float ffMin = pGFindMin->GetResult();
 		float ffMax = pGFindMax->GetResult();
@@ -206,7 +210,7 @@ void CSaveSerialCryoEM::mSaveStack(void)
 	printf("Motion corrected stack done.\n\n");
 	//-----------------------------------------
 	delete pGFindMax;
-	cudaFree(stream);
+	hipFree(stream);
 }
 
 void CSaveSerialCryoEM::mSaveImage

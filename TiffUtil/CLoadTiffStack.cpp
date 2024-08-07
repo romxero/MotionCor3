@@ -1,3 +1,7 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CTiffFileInc.h"
 #include "../CMainInc.h"
 #include <Mrcfile/CMrcFileInc.h>
@@ -9,8 +13,8 @@
 #include <memory.h>
 #include <string.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 #include <nvToolsExt.h>
 
 using namespace MotionCor2;
@@ -205,13 +209,13 @@ void CLoadTiffStack::mLoadSingle(void)
 void CLoadTiffStack::mLoadIntGpu(void)
 {
 	CInput* pInput = CInput::GetInstance();
-	cudaSetDevice(pInput->m_piGpuIds[0]);
+	hipSetDevice(pInput->m_piGpuIds[0]);
 	//-----------------------------------
 	DataUtil::CMrcStack* pRawStack = s_pPackage->m_pRawStack;
 	unsigned char *gucRaw = 0L, *gucSum = 0L;
 	size_t tFmBytes = pRawStack->m_tFmBytes;
-	cudaMalloc(&gucSum, tFmBytes);
-	cudaMalloc(&gucRaw, tFmBytes);
+	hipMalloc(&gucSum, tFmBytes);
+	hipMalloc(&gucRaw, tFmBytes);
 	//----------------------------
 	while(true)
 	{	int iIntFm = s_pNextItem->GetNext();
@@ -228,24 +232,24 @@ void CLoadTiffStack::mLoadIntGpu(void)
 			else continue;
 		}
 		//---------------------------
-		cudaMemcpy(gucSum, pvIntFm, tFmBytes, cudaMemcpyDefault);
+		hipMemcpy(gucSum, pvIntFm, tFmBytes, hipMemcpyDefault);
 		Util::GAddFrames aGAddFrames;
 		//---------------------------
 		for(int i=1; i<iIntFmSize; i++)
 		{	m_bLoaded = m_pLoadTiffImage->DoIt(
 			   iIntFmStart+i, (char*)pvIntFm);
 			if(!m_bLoaded) break;
-			cudaMemcpy(gucRaw, pvIntFm, tFmBytes, 
-			   cudaMemcpyDefault);
+			hipMemcpy(gucRaw, pvIntFm, tFmBytes, 
+			   hipMemcpyDefault);
 			aGAddFrames.DoIt(gucRaw, gucSum, gucSum,
 			   pRawStack->m_aiStkSize);
 		}
 		if(!m_bLoaded) break;
-		cudaMemcpy(pvIntFm, gucSum, tFmBytes, cudaMemcpyDefault);
+		hipMemcpy(pvIntFm, gucSum, tFmBytes, hipMemcpyDefault);
 	}
 	//---------------------------------------------------------------
-	cudaFree(gucRaw);
-	cudaFree(gucSum);
+	hipFree(gucRaw);
+	hipFree(gucSum);
 }
 
 void CLoadTiffStack::mLoadIntCpu(void)

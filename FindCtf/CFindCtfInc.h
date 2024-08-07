@@ -1,9 +1,11 @@
 #pragma once
+#include <hip/hip_runtime.h>
+
 #include "../Util/CUtilInc.h"
 #include "../MrcUtil/CMrcUtilInc.h"
 #include "../DataUtil/CDataUtilInc.h"
 #include <Util/Util_Thread.h>
-#include <cufft.h>
+#include <hipfft/hipfft.h>
 
 namespace MotionCor2
 {
@@ -188,7 +190,7 @@ public:
 	GCalcSpectrum(void);
 	~GCalcSpectrum(void);
 	void DoIt
-	( cufftComplex* gCmp,
+	( hipfftComplex* gCmp,
 	  float* gfSpectrum,
 	  int* piCmpSize,
 	  bool bLog

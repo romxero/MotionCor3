@@ -1,3 +1,7 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../CMainInc.h"
 #include "../Correct/CCorrectInc.h"
@@ -5,9 +9,9 @@
 #include "../MrcUtil/CMrcUtilInc.h"
 #include <memory.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <Util/Util_Time.h>
 #include <nvToolsExt.h>
 
@@ -81,10 +85,10 @@ void CDetectFeatures::DoIt(CStackShift* pXcfStackShift, int* piNumPatches)
 	//----------------------------------------------------------
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	CStackBuffer* pSumBuffer = pBufferPool->GetBuffer(EBuffer::sum);
-	cufftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
 	//-------------------------------------------------
 	CStackBuffer* pTmpBuffer = pBufferPool->GetBuffer(EBuffer::tmp);
-	cufftComplex* gCmpBinnedSum = pTmpBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpBinnedSum = pTmpBuffer->GetFrame(0, 0);
 	//-------------------------------------------------------
 	CStackBuffer* pXcfBuffer = pBufferPool->GetBuffer(EBuffer::xcf);
 	int aiOutCmpSize[] = {m_aiBinnedSize[0] / 2 + 1, m_aiBinnedSize[1]};
@@ -94,7 +98,7 @@ void CDetectFeatures::DoIt(CStackShift* pXcfStackShift, int* piNumPatches)
 	//----------------------------------------
 	Util::CCufft2D* pInverseFFT = pBufferPool->GetInverseFFT(0);
 	pInverseFFT->CreateInversePlan(aiOutCmpSize, true);
-	pInverseFFT->Inverse(gCmpBinnedSum, (cudaStream_t)0);
+	pInverseFFT->Inverse(gCmpBinnedSum, (hipStream_t)0);
 	float* gfBinnedSum = reinterpret_cast<float*>(gCmpBinnedSum);
 	//-----------------------------------------------------------
 	int aiOutPadSize[] = { aiOutCmpSize[0] * 2, aiOutCmpSize[1] };
@@ -121,8 +125,8 @@ void CDetectFeatures::DoIt(CStackShift* pXcfStackShift, int* piNumPatches)
 	int iBytes = sizeof(float) * m_aiBinnedSize[0];
 	int iPadSize = aiOutCmpSize[0] * 2;
 	for(int y=0; y<m_aiBinnedSize[1]; y++)
-	{	cudaMemcpy(pfBinnedSum + y * m_aiBinnedSize[0],
-		   gfBinnedSum + y * iPadSize, iBytes, cudaMemcpyDefault);
+	{	hipMemcpy(pfBinnedSum + y * m_aiBinnedSize[0],
+		   gfBinnedSum + y * iPadSize, iBytes, hipMemcpyDefault);
 	}
 	//----------------------------------------------------------------
 	/*

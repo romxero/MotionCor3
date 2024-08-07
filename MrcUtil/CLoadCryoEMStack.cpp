@@ -1,3 +1,7 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMrcUtilInc.h"
 #include "../CMainInc.h"
 #include <Mrcfile/CMrcFileInc.h>
@@ -7,8 +11,8 @@
 #include <sys/sysinfo.h>
 #include <string.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 
 using namespace MotionCor2;
 using namespace MotionCor2::MrcUtil;
@@ -183,7 +187,7 @@ void CLoadCryoEMStack::mLoadSingle4Bits(void)
 void CLoadCryoEMStack::mLoadInt(void)
 {
 	CInput* pInput = CInput::GetInstance();
-	cudaSetDevice(pInput->m_piGpuIds[0]);
+	hipSetDevice(pInput->m_piGpuIds[0]);
 	//-----------------------------------
 	if(s_iMode == Mrc::eMrc4Bits)
 	{	mLoadInt4Bits();
@@ -193,7 +197,7 @@ void CLoadCryoEMStack::mLoadInt(void)
 	DataUtil::CMrcStack* pMrcStack = s_pPackage->m_pRawStack;
 	size_t tFmBytes = pMrcStack->m_tFmBytes;
 	unsigned char *pucRaw = 0L, *gucSum = 0L;
-	cudaMalloc(&gucSum, tFmBytes);
+	hipMalloc(&gucSum, tFmBytes);
 	//---------------------------------------------
 	Util::GAddFrames aGAddFrames;
 	for(int i=0; i<pMrcStack->m_aiStkSize[2]; i++)
@@ -204,15 +208,15 @@ void CLoadCryoEMStack::mLoadInt(void)
 		if(iIntFmSize == 1) continue;
 		//-------------------------------------------------
 		pucRaw = (unsigned char*)pvIntFm;
-		cudaMemcpy(gucSum, pucRaw, tFmBytes, cudaMemcpyDefault);
+		hipMemcpy(gucSum, pucRaw, tFmBytes, hipMemcpyDefault);
 		for(int j=1; j<iIntFmSize; j++)
 		{	m_pLoadMrc->m_pLoadImg->DoIt(iIntFmStart+j, pucRaw);
 			aGAddFrames.DoIt(pucRaw, gucSum, gucSum,
 			   pMrcStack->m_aiStkSize);
 		}
-		cudaMemcpy(pvIntFm, gucSum, tFmBytes, cudaMemcpyDefault);
+		hipMemcpy(pvIntFm, gucSum, tFmBytes, hipMemcpyDefault);
 	}
-	cudaFree(gucSum);
+	hipFree(gucSum);
 }
 
 void CLoadCryoEMStack::mLoadInt4Bits(void)
@@ -223,12 +227,12 @@ void CLoadCryoEMStack::mLoadInt4Bits(void)
 	//--------------------------------------	
 	int iPkdBytes = (piRawSize[0] + 1) / 2 * piRawSize[1] * sizeof(char);
 	unsigned char *pucPkd = 0L, *gucPkd = 0L;
-	cudaMallocHost(&pucPkd, iPkdBytes);
-	cudaMalloc(&gucPkd, iPkdBytes);
+	hipHostMalloc(&pucPkd, iPkdBytes);
+	hipMalloc(&gucPkd, iPkdBytes);
 	//----------------------------------------
 	unsigned char *gucRaw = 0L, *gucSum = 0L;
-	cudaMalloc(&gucRaw, tFmBytes);
-	cudaMalloc(&gucSum, tFmBytes);
+	hipMalloc(&gucRaw, tFmBytes);
+	hipMalloc(&gucSum, tFmBytes);
 	//-------------------------------------------
 	G4BitImage aG4BitImg;
 	Util::GAddFrames aGAddFrms;
@@ -238,24 +242,24 @@ void CLoadCryoEMStack::mLoadInt4Bits(void)
 		int iIntFmSize = s_pFmIntParam->GetIntFmSize(i);
 		//----------------------------------------------
 		m_pLoadMrc->m_pLoadImg->DoIt(iIntFmStart, pucPkd);
-		cudaMemcpy(gucPkd, pucPkd, iPkdBytes, cudaMemcpyDefault);
+		hipMemcpy(gucPkd, pucPkd, iPkdBytes, hipMemcpyDefault);
 		aG4BitImg.Unpack(gucPkd, gucSum, piRawSize);
 		//-------------------------------------------------------
 		void* pvIntFm = pMrcStack->GetFrame(i);
 		for(int j=1; j<iIntFmSize; j++)
 		{	int k = iIntFmStart + j;
 			m_pLoadMrc->m_pLoadImg->DoIt(k, pucPkd);
-			cudaMemcpy(gucPkd, pucPkd, iPkdBytes,
-			   cudaMemcpyDefault);
+			hipMemcpy(gucPkd, pucPkd, iPkdBytes,
+			   hipMemcpyDefault);
 			aG4BitImg.Unpack(gucPkd, gucRaw, piRawSize);
 			aGAddFrms.DoIt(gucRaw, gucSum, gucSum, piRawSize);
 		}
-		cudaMemcpy(pvIntFm, gucSum, tFmBytes, cudaMemcpyDefault);
+		hipMemcpy(pvIntFm, gucSum, tFmBytes, hipMemcpyDefault);
 	}
-	cudaFree(gucRaw);
-	cudaFree(gucPkd);
-	cudaFree(gucSum);
-	cudaFreeHost(pucPkd);
+	hipFree(gucRaw);
+	hipFree(gucPkd);
+	hipFree(gucSum);
+	hipHostFree(pucPkd);
 }
 
 float CLoadCryoEMStack::mCalcMean(char* pcFrame)

@@ -2,7 +2,7 @@
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
 #include "../MrcUtil/CMrcUtilInc.h"
-#include <cuda.h>
+#include <hip/hip_runtime.h>
 
 namespace MotionCor2
 {
@@ -20,7 +20,7 @@ public:
 	  unsigned char* gucBadMap,
 	  int* piFrmSize,
 	  bool bPadded,
-          cudaStream_t stream=0
+          hipStream_t stream=0
 	);
 private:
         int m_iWinSize;

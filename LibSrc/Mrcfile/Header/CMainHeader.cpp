@@ -1,3 +1,9 @@
+
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "../Include/CMrcFileInc.h"
 #include <Util/Util_SwapByte.h>
 #include <memory.h>

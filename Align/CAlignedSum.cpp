@@ -1,9 +1,13 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <memory.h>
 #include <stdio.h>
 
@@ -54,13 +58,13 @@ void CAlignedSum::DoIt
 	//--------------------------------------------------------------
 	size_t tBytes = pFrmBuffer->m_tFmBytes;
 	int* piCmpSize = pFrmBuffer->m_aiCmpSize;
-	cufftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
-	cufftComplex* gCmpBuf = pTmpBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpBuf = pTmpBuffer->GetFrame(0, 0);
 	Util::GAddFrames addFrames;
 	//-------------------------
 	for(int i=1; i<iNumGpus; i++)
-	{	cufftComplex* gSum = pSumBuffer->GetFrame(i, 0);
-		cudaMemcpy(gCmpBuf, gSum, tBytes, cudaMemcpyDefault);
+	{	hipfftComplex* gSum = pSumBuffer->GetFrame(i, 0);
+		hipMemcpy(gCmpBuf, gSum, tBytes, hipMemcpyDefault);
 		addFrames.DoIt(gCmpBuf, 1.0f, gCmpSum, 1.0f, 
 		   gCmpSum, piCmpSize);
 	}
@@ -76,14 +80,14 @@ void CAlignedSum::mDoIt(int iNthGpu)
         m_pTmpBuffer = pBufferPool->GetBuffer(EBuffer::tmp);
 	//--------------------------------------------------
 	m_pFrmBuffer->SetDevice(m_iNthGpu);
-	cudaStreamCreate(&m_aStreams[0]);
-	cudaStreamCreate(&m_aStreams[1]);	
+	hipStreamCreate(&m_aStreams[0]);
+	hipStreamCreate(&m_aStreams[1]);	
 	//-------------------------------
 	m_gCmpSums[0] = m_pSumBuffer->GetFrame(m_iNthGpu, 0);
 	m_gCmpSums[1] = m_pTmpBuffer->GetFrame(m_iNthGpu, 0);
 	size_t tBytes = m_pFrmBuffer->m_tFmBytes;
-	cudaMemsetAsync(m_gCmpSums[0], 0, tBytes, m_aStreams[0]);
-	cudaMemsetAsync(m_gCmpSums[1], 0, tBytes, m_aStreams[1]);
+	hipMemsetAsync(m_gCmpSums[0], 0, tBytes, m_aStreams[0]);
+	hipMemsetAsync(m_gCmpSums[1], 0, tBytes, m_aStreams[1]);
 	//-------------------------------------------------------
 	int iStartFrm = m_pFrmBuffer->GetStartFrame(m_iNthGpu);
 	int iNumFrames = m_pFrmBuffer->GetNumFrames(m_iNthGpu);
@@ -100,21 +104,21 @@ void CAlignedSum::mWait(void)
 {
 	m_pFrmBuffer->SetDevice(m_iNthGpu);
 	//---------------------------------
-	cudaStreamSynchronize(m_aStreams[1]);
+	hipStreamSynchronize(m_aStreams[1]);
 	Util::GAddFrames addFrames;
 	addFrames.DoIt(m_gCmpSums[0], 1.0f, m_gCmpSums[1], 1.0f,
 	   m_gCmpSums[0], m_pFrmBuffer->m_aiCmpSize, 
 	   m_aStreams[0]);
-	cudaStreamSynchronize(m_aStreams[0]);
+	hipStreamSynchronize(m_aStreams[0]);
 	//-----------------------------------
-	cudaStreamDestroy(m_aStreams[0]);
-	cudaStreamDestroy(m_aStreams[1]);
+	hipStreamDestroy(m_aStreams[0]);
+	hipStreamDestroy(m_aStreams[1]);
 }
 
 void CAlignedSum::mDoFrame(int iFrame)
 {
-	cufftComplex* gCmpFrm = m_pFrmBuffer->GetFrame(m_iNthGpu, iFrame);
-	cufftComplex* gCmpSum = m_gCmpSums[m_iStream];
+	hipfftComplex* gCmpFrm = m_pFrmBuffer->GetFrame(m_iNthGpu, iFrame);
+	hipfftComplex* gCmpSum = m_gCmpSums[m_iStream];
 	//----------------------------------------------------------------
 	float afShift[2] = {0.0f};
 	s_pStackShift->GetShift(m_iAbsFrm, afShift, -1.0f);

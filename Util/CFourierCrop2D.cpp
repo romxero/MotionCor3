@@ -1,7 +1,11 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CUtilInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <memory.h>
 #include <stdio.h>
 
@@ -39,10 +43,10 @@ void CFourierCrop2D::Setup(int* piCmpSizeIn, int* piCmpSizeOut)
 }
 
 void CFourierCrop2D::DoIt
-(	cufftComplex* gCmp,
-	cufftComplex* gCmpBuf,
+(	hipfftComplex* gCmp,
+	hipfftComplex* gCmpBuf,
 	float* gfImg,
-	cudaStream_t stream
+	hipStream_t stream
 )
 {	GFourierResize2D fourierResize;
 	fourierResize.DoIt

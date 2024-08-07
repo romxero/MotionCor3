@@ -1,9 +1,13 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMainInc.h"
 #include "Util/CUtilInc.h"
 #include "MrcUtil/CMrcUtilInc.h"
 #include "TiffUtil/CTiffFileInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 #include <Mrcfile/CMrcFileInc.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -73,8 +77,8 @@ CLoadRefs::~CLoadRefs(void)
 
 void CLoadRefs::CleanRefs(void)
 {
-	if(m_pfGain != 0L) cudaFreeHost(m_pfGain);
-	if(m_pfDark != 0L) cudaFreeHost(m_pfDark);
+	if(m_pfGain != 0L) hipHostFree(m_pfGain);
+	if(m_pfDark != 0L) hipHostFree(m_pfDark);
 	m_pfGain = 0L;
 	m_pfDark = 0L;
 }
@@ -127,7 +131,7 @@ void CLoadRefs::mLoadGainMrc(char* pcMrcFile)
 	   "   %s\n", pcMrcFile);
 	//-----------------
 	int iPixels = iSizeX * iSizeY;
-	cudaMallocHost(&m_pfGain, sizeof(float) * iPixels);
+	hipHostMalloc(&m_pfGain, sizeof(float) * iPixels);
 	aLoadMrc.m_pLoadImg->DoIt(0, m_pfGain);
 	m_aiRefSize[0] = iSizeX;
 	m_aiRefSize[1] = iSizeY;
@@ -152,7 +156,7 @@ void CLoadRefs::mLoadGainTiff(char* pcTiffFile)
 	//-----------------
 	printf("Load gain reference from\n   %s\n", pcTiffFile);
 	int iPixels = aiSize[0] * aiSize[1];
-	cudaMallocHost(&m_pfGain, sizeof(float) * iPixels);
+	hipHostMalloc(&m_pfGain, sizeof(float) * iPixels);
 	//-----------------
 	TiffUtil::CLoadTiffImage loadImage;
 	loadImage.SetFile(iFile);
@@ -185,7 +189,7 @@ bool CLoadRefs::LoadDark(char* pcMrcFile)
 	if(iMode == Mrc::eMrcFloat)
 	{	int iPixels = m_aiDarkSize[0] * m_aiDarkSize[1];
 		int iBytes = sizeof(float) * iPixels;
-		cudaMallocHost(&m_pfDark, iBytes);
+		hipHostMalloc(&m_pfDark, iBytes);
 		memset(m_pfDark, 0, iBytes);
 		aLoadMrc.m_pLoadImg->DoIt(0, m_pfDark);
 	} 
@@ -208,24 +212,24 @@ void CLoadRefs::PostProcess(int iRotFact, int iFlip, int iInverse)
 	//------------------------------------------------------
 	float* gfBuf = 0L;
 	size_t tBytes = sizeof(float) * m_aiRefSize[0] * m_aiRefSize[1];
-	cudaMalloc(&gfBuf, tBytes);
+	hipMalloc(&gfBuf, tBytes);
 	//-------------------------
 	if(m_pfGain != 0L)
-	{	cudaMemcpy(gfBuf, m_pfGain, tBytes, cudaMemcpyDefault);
+	{	hipMemcpy(gfBuf, m_pfGain, tBytes, hipMemcpyDefault);
 		mRotate(gfBuf, m_aiRefSize, iRotFact);
 		mFlip(gfBuf, m_aiRefSize, iFlip);
 		mInverse(gfBuf, m_aiRefSize, iInverse);
-		cudaMemcpy(m_pfGain, gfBuf, tBytes, cudaMemcpyDefault);
+		hipMemcpy(m_pfGain, gfBuf, tBytes, hipMemcpyDefault);
 	}
 	//-------------------------------------------------------------
 	if(m_pfDark != 0L && (iRotFact != 0 || iFlip == 0))
-	{	cudaMemcpy(gfBuf, m_pfDark, tBytes, cudaMemcpyDefault);
+	{	hipMemcpy(gfBuf, m_pfDark, tBytes, hipMemcpyDefault);
 		mRotate(gfBuf, m_aiDarkSize, iRotFact);
 		mFlip(gfBuf, m_aiDarkSize, iFlip);
-		cudaMemcpy(m_pfDark, gfBuf, tBytes, cudaMemcpyDefault);
+		hipMemcpy(m_pfDark, gfBuf, tBytes, hipMemcpyDefault);
 	}
 	//-------------------------------------------------------------
-	cudaFree(gfBuf);
+	hipFree(gfBuf);
 }
 
 bool CLoadRefs::AugmentRefs(int* piFmSize)
@@ -251,11 +255,11 @@ bool CLoadRefs::AugmentRefs(int* piFmSize)
 	}
 	//-----------------
 	float* pfAugGain = mAugmentRef(m_pfGain, iFactX);
-	if(m_pfGain != 0L) cudaFreeHost(m_pfGain);
+	if(m_pfGain != 0L) hipHostFree(m_pfGain);
 	m_pfGain = pfAugGain;
 	//-----------------
 	float* pfAugDark = mAugmentRef(m_pfDark, iFactX);
-	if(m_pfDark != 0L) cudaFreeHost(m_pfDark);
+	if(m_pfDark != 0L) hipHostFree(m_pfDark);
 	m_pfDark = pfAugDark;
 	//-----------------
 	m_aiRefSize[0] *= iFactX;
@@ -270,14 +274,14 @@ bool CLoadRefs::AugmentRefs(int* piFmSize)
 void CLoadRefs::mClearGain(void)
 {
 	if(m_pfGain == 0L) return;
-	cudaFreeHost(m_pfGain);
+	hipHostFree(m_pfGain);
 	m_pfGain = 0L;
 }
 
 void CLoadRefs::mClearDark(void)
 {
 	if(m_pfDark == 0L) return;
-	cudaFreeHost(m_pfDark);
+	hipHostFree(m_pfDark);
 	m_pfDark = 0L;
 }
 
@@ -320,28 +324,28 @@ float* CLoadRefs::mToFloat(void* pvRef, int iMode, int* piSize)
 	//----------------------------------
 	if(iMode == 0)
 	{	char* pcRef = (char*)pvRef;
-		cudaMallocHost(&pfRef, sizeof(float) * iPixels);
+		hipHostMalloc(&pfRef, sizeof(float) * iPixels);
 		for(int i=0; i<iPixels; i++) pfRef[i] = pcRef[i];
 		return pfRef;
 	}
 	//----------------
 	if(iMode == Mrc::eMrcShort)
 	{	short* psRef = (short*)pvRef;
-		cudaMallocHost(&pfRef, sizeof(float) * iPixels);
+		hipHostMalloc(&pfRef, sizeof(float) * iPixels);
 		for(int i=0; i<iPixels; i++) pfRef[i] = psRef[i];
 		return pfRef;
 	}
 	//----------------
 	if(iMode == Mrc::eMrcUShort)
 	{	unsigned short* pusRef = (unsigned short*)pvRef;
-		cudaMallocHost(&pfRef, sizeof(float) * iPixels);
+		hipHostMalloc(&pfRef, sizeof(float) * iPixels);
 		for(int i=0; i<iPixels; i++) pfRef[i] = pusRef[i];
 		return pfRef;
 	}
 	//----------------
 	if(iMode == Mrc::eMrcUCharEM)
 	{	unsigned char* pucRef = (unsigned char*)pvRef;
-		cudaMallocHost(&pfRef, sizeof(float) * iPixels);
+		hipHostMalloc(&pfRef, sizeof(float) * iPixels);
 		for(int i=0; i<iPixels; i++) pfRef[i] = pucRef[i];
 		return pfRef;
 	}
@@ -354,7 +358,7 @@ void CLoadRefs::mCheckDarkRef(void)
 	if(m_aiDarkSize[0] == m_aiRefSize[0] && 
 	   m_aiDarkSize[1] == m_aiRefSize[1]) return;
 	//-------------------------------------------
-	cudaFreeHost(m_pfDark);
+	hipHostFree(m_pfDark);
 	m_pfDark = 0L;
 	memset(m_aiDarkSize, 0, sizeof(m_aiDarkSize));
 	printf("Warning: The sizes of Dark and gain references do not "
@@ -367,7 +371,7 @@ float* CLoadRefs::mAugmentRef(float* pfRef, int iFact)
 	int aiAugSize[] = {m_aiRefSize[0] * iFact, m_aiRefSize[1] * iFact};
 	size_t tBytes = sizeof(float) * aiAugSize[0] * aiAugSize[1];
 	float* pfAugRef = 0L;
-	cudaMallocHost(&pfAugRef, tBytes);
+	hipHostMalloc(&pfAugRef, tBytes);
 	//--------------------------------
 	MrcUtil::GAugmentRef aGAugmentRef;
 	aGAugmentRef.DoIt(pfRef, m_aiRefSize, pfAugRef, aiAugSize);

@@ -1,10 +1,14 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CCorrectInc.h"
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
 #include "../FindCtf/CFindCtfInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <memory.h>
 #include <stdio.h>
 
@@ -75,16 +79,16 @@ void CCorrectFullShift::mSumPartialSums(void)
 	CStackBuffer* pTmpBuffer = pBufferPool->GetBuffer(EBuffer::tmp);
 	if(pBufferPool->m_iNumGpus <= 1) return;
 	//--------------------------------------
-	cufftComplex* gCmpBuf = pTmpBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpBuf = pTmpBuffer->GetFrame(0, 0);
 	size_t tBytes = pFrmBuffer->m_tFmBytes;
 	Util::GAddFrames addFrames;
 	//-------------------------
 	for(int s=0; s<pBufferPool->m_iNumSums; s++)
-	{	cufftComplex* gCmpSum = pSumBuffer->GetFrame(0, s);
+	{	hipfftComplex* gCmpSum = pSumBuffer->GetFrame(0, s);
 		for(int g=1; g<pBufferPool->m_iNumGpus; g++)
-		{	cufftComplex* gPartSum = pSumBuffer->GetFrame(g, s);
-			cudaMemcpy(gCmpBuf, gPartSum, tBytes, 
-				cudaMemcpyDefault);
+		{	hipfftComplex* gPartSum = pSumBuffer->GetFrame(g, s);
+			hipMemcpy(gCmpBuf, gPartSum, tBytes, 
+				hipMemcpyDefault);
 			addFrames.DoIt(gCmpSum, 1.0f, gCmpBuf, 1.0f, 
 				gCmpSum, pFrmBuffer->m_aiCmpSize);
 		}
@@ -115,8 +119,8 @@ void CCorrectFullShift::mCorrectMag(void)
 	pForwardFFT->CreateForwardPlan(aiPadSize, true);
 	//----------------------------------------------
         for(int i=0; i<pBufferPool->m_iNumSums; i++)
-        {       cufftComplex* gCmpSum = pSumBuffer->GetFrame(0, i);
-		cufftComplex* gCmpTmp = pTmpBuffer->GetFrame(0, 0);
+        {       hipfftComplex* gCmpSum = pSumBuffer->GetFrame(0, i);
+		hipfftComplex* gCmpTmp = pTmpBuffer->GetFrame(0, 0);
 		pInverseFFT->Inverse(gCmpSum, (float*)gCmpTmp);
 		//---------------------------------------------
 		float* gfPadFrm = reinterpret_cast<float*>(gCmpTmp);
@@ -151,7 +155,7 @@ void CCorrectFullShift::mUnpadSums(void)
 	CStackBuffer* pSumBuffer = pBufferPool->GetBuffer(EBuffer::sum);
 	CStackBuffer* pTmpBuffer = pBufferPool->GetBuffer(EBuffer::tmp);
 	//--------------------------------------------------------------
-	cufftComplex* gCmpBuf = pTmpBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpBuf = pTmpBuffer->GetFrame(0, 0);
 	Util::GFourierResize2D fftResize;
 	Util::GPad2D pad2D;
 	//-----------------
@@ -162,7 +166,7 @@ void CCorrectFullShift::mUnpadSums(void)
 	//------------------------------
 	DU::CMrcStack* pAlnSums = m_pPackage->m_pAlnSums;
 	for(int i=0; i<pBufferPool->m_iNumSums; i++)
-	{	cufftComplex* gCmpSum = pSumBuffer->GetFrame(0, i);
+	{	hipfftComplex* gCmpSum = pSumBuffer->GetFrame(0, i);
 		fftResize.DoIt(gCmpSum, pSumBuffer->m_aiCmpSize,
 		   gCmpBuf, m_aiOutCmpSize, false);
 		//---------------------------------
@@ -179,8 +183,8 @@ void CCorrectFullShift::mUnpadSums(void)
 		if(i == 0) mEstimateCtf(gfImg, pAlnSums->m_aiStkSize);
 		//----------------
 		void* pvImg = pAlnSums->GetFrame(i);
-		cudaMemcpy(pvImg, gfImg, pAlnSums->m_tFmBytes,
-		   cudaMemcpyDefault);
+		hipMemcpy(pvImg, gfImg, pAlnSums->m_tFmBytes,
+		   hipMemcpyDefault);
 	}
 }
 
@@ -190,15 +194,15 @@ void CCorrectFullShift::Run(int iNthGpu)
 	mInit();
 	mCorrectGpuFrames();
 	mCorrectCpuFrames();
-	cudaDeviceSynchronize();
+	hipDeviceSynchronize();
 }
 
 void CCorrectFullShift::Wait(void)
 {
 	m_pFrmBuffer->SetDevice(m_iNthGpu);
-	cudaDeviceSynchronize();
-	cudaStreamDestroy(m_aStreams[0]);
-	cudaStreamDestroy(m_aStreams[1]);
+	hipDeviceSynchronize();
+	hipStreamDestroy(m_aStreams[0]);
+	hipStreamDestroy(m_aStreams[1]);
 	//-------------------------------
 	if(m_pGWeightFrame != 0L) delete m_pGWeightFrame;
 	m_pGWeightFrame = 0L;
@@ -213,16 +217,16 @@ void CCorrectFullShift::mInit(void)
 	m_pSumBuffer = pBufferPool->GetBuffer(EBuffer::sum);
 	m_pTmpBuffer = pBufferPool->GetBuffer(EBuffer::tmp);
 	//--------------------------------------------------
-	cudaStreamCreate(&m_aStreams[0]);
-	cudaStreamCreate(&m_aStreams[1]);
+	hipStreamCreate(&m_aStreams[0]);
+	hipStreamCreate(&m_aStreams[1]);
 	//-------------------------------
 	mCheckDoseWeight();
 	mCheckFrameCrop();
 	//----------------
 	size_t tBytes = m_pFrmBuffer->m_tFmBytes;
 	for(int i=0; i<pBufferPool->m_iNumSums; i++)
-	{	cufftComplex* gCmpSum = m_pSumBuffer->GetFrame(m_iNthGpu, i);
-		cudaMemsetAsync(gCmpSum, 0, tBytes, m_aStreams[0]);
+	{	hipfftComplex* gCmpSum = m_pSumBuffer->GetFrame(m_iNthGpu, i);
+		hipMemsetAsync(gCmpSum, 0, tBytes, m_aStreams[0]);
 	}
 }
 
@@ -234,7 +238,7 @@ void CCorrectFullShift::mCorrectGpuFrames(void)
         {       if(!m_pFrmBuffer->IsGpuFrame(m_iNthGpu, i)) continue;
 		//---------------------------------------------------
                 m_iAbsFrm = iStartFrm + i;
-                cufftComplex* gCmpFrm = m_pFrmBuffer->GetFrame(m_iNthGpu, i);
+                hipfftComplex* gCmpFrm = m_pFrmBuffer->GetFrame(m_iNthGpu, i);
 		mAlignFrame(gCmpFrm);
                 mGenSums(gCmpFrm);
         }
@@ -246,7 +250,7 @@ void CCorrectFullShift::mCorrectCpuFrames(void)
 	size_t tBytes = m_pFrmBuffer->m_tFmBytes;
 	int iStartFrm = m_pFrmBuffer->GetStartFrame(m_iNthGpu);
 	int iNumFrames = m_pFrmBuffer->GetNumFrames(m_iNthGpu);
-	cufftComplex *pCmpFrm, *gCmpBuf;
+	hipfftComplex *pCmpFrm, *gCmpBuf;
 	//------------------------------
 	for(int i=0; i<iNumFrames; i++)
 	{	if(m_pFrmBuffer->IsGpuFrame(m_iNthGpu, i)) continue;
@@ -257,10 +261,10 @@ void CCorrectFullShift::mCorrectCpuFrames(void)
 		pCmpFrm = m_pFrmBuffer->GetFrame(m_iNthGpu, i);
 		//--------------------------------------------------
 		if(iStream == 1 && iCount > 1) 
-			cudaStreamSynchronize(m_aStreams[0]);
-		cudaMemcpyAsync(gCmpBuf, pCmpFrm, tBytes, 
-			cudaMemcpyDefault, m_aStreams[iStream]);
-		if(iStream == 1) cudaStreamSynchronize(m_aStreams[1]);
+			hipStreamSynchronize(m_aStreams[0]);
+		hipMemcpyAsync(gCmpBuf, pCmpFrm, tBytes, 
+			hipMemcpyDefault, m_aStreams[iStream]);
+		if(iStream == 1) hipStreamSynchronize(m_aStreams[1]);
 		//----------------------------------------------------
 		mAlignFrame(gCmpBuf);
 		mGenSums(gCmpBuf);
@@ -268,7 +272,7 @@ void CCorrectFullShift::mCorrectCpuFrames(void)
 	}
 }
 
-void CCorrectFullShift::mGenSums(cufftComplex* gCmpFrm)
+void CCorrectFullShift::mGenSums(hipfftComplex* gCmpFrm)
 {	
 	mMotionDecon(gCmpFrm);
 	//-----------------
@@ -299,7 +303,7 @@ void CCorrectFullShift::mGenSums(cufftComplex* gCmpFrm)
 	}
 }
 
-void CCorrectFullShift::mAlignFrame(cufftComplex* gCmpFrm)
+void CCorrectFullShift::mAlignFrame(hipfftComplex* gCmpFrm)
 {	
 	float afShift[2] = {0};
 	m_pFullShift->GetShift(m_iAbsFrm, afShift, -1.0f);
@@ -308,7 +312,7 @@ void CCorrectFullShift::mAlignFrame(cufftComplex* gCmpFrm)
 	   afShift, m_aStreams[0]);
 }
 
-void CCorrectFullShift::mMotionDecon(cufftComplex* gCmpFrm)
+void CCorrectFullShift::mMotionDecon(hipfftComplex* gCmpFrm)
 {	
 	CInput* pInput = CInput::GetInstance();
 	if(pInput->m_iInFmMotion == 0) return;
@@ -319,25 +323,25 @@ void CCorrectFullShift::mMotionDecon(cufftComplex* gCmpFrm)
 		piCmpSize, m_aStreams[0]);
 }
 
-void CCorrectFullShift::mDoseWeight(cufftComplex* gCmpFrm)
+void CCorrectFullShift::mDoseWeight(hipfftComplex* gCmpFrm)
 {	
 	if(m_pGWeightFrame == 0L) return;
 	m_pGWeightFrame->DoIt(gCmpFrm, m_iAbsFrm, m_aStreams[0]);
 }
 
-void CCorrectFullShift::mSum(cufftComplex* gCmpFrm, int iNthSum)
+void CCorrectFullShift::mSum(hipfftComplex* gCmpFrm, int iNthSum)
 {      
-	cufftComplex* gCmpSum = m_pSumBuffer->GetFrame(m_iNthGpu, iNthSum);
+	hipfftComplex* gCmpSum = m_pSumBuffer->GetFrame(m_iNthGpu, iNthSum);
 	Util::GAddFrames addFrames;
 	addFrames.DoIt(gCmpFrm, 1.0f, gCmpSum, 1.0f, gCmpSum,
 		m_pFrmBuffer->m_aiCmpSize, m_aStreams[0]);
 }
 
-void CCorrectFullShift::mCropFrame(cufftComplex* gCmpFrm)
+void CCorrectFullShift::mCropFrame(hipfftComplex* gCmpFrm)
 {
 	if(m_pInverseFFT == 0L) return;
 	//-----------------
-	cufftComplex* gCmpBuf = m_pTmpBuffer->GetFrame(m_iNthGpu, 3);
+	hipfftComplex* gCmpBuf = m_pTmpBuffer->GetFrame(m_iNthGpu, 3);
 	Util::GFourierResize2D fftResize;
 	fftResize.DoIt(gCmpFrm, m_aiInCmpSize, gCmpBuf, 
 	   m_aiOutCmpSize, false, m_aStreams[0]);
@@ -350,7 +354,7 @@ void CCorrectFullShift::mCropFrame(cufftComplex* gCmpFrm)
 	Util::GPad2D aGPad2D;
 	aGPad2D.Unpad(gfPadBuf, m_aiOutPadSize, pfPinned, m_aStreams[0]);
 	//-----------------
-	cudaStreamSynchronize(m_aStreams[0]);
+	hipStreamSynchronize(m_aStreams[0]);
 	void* pvFrm = m_pPackage->m_pAlnStack->GetFrame(m_iAbsFrm);
 	memcpy(pvFrm, pfPinned, m_pPackage->m_pAlnStack->m_tFmBytes);
 }
@@ -369,7 +373,7 @@ void CCorrectFullShift::mCheckDoseWeight(void)
 	m_pFrmBuffer->SetDevice(m_iNthGpu);
 	if(m_pGWeightFrame == 0L) m_pGWeightFrame = new GWeightFrame;
 	//-----------------
-	cufftComplex* gCmpBuf = m_pTmpBuffer->GetFrame(m_iNthGpu, 2);
+	hipfftComplex* gCmpBuf = m_pTmpBuffer->GetFrame(m_iNthGpu, 2);
 	float* gfWeightBuf = reinterpret_cast<float*>(gCmpBuf);
 	m_pGWeightFrame->BuildWeight(pInput->m_fPixelSize, pInput->m_iKv,
 	  pFmIntParam->m_pfAccFmDose, pBufferPool->m_aiStkSize, 

@@ -1,3 +1,7 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CFindCtfInc.h"
 #include "../Util/CUtilInc.h"
 #include "../MrcUtil/CMrcUtilInc.h"
@@ -5,8 +9,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <memory.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 
 using namespace MotionCor2::FindCtf;
 
@@ -22,7 +26,7 @@ CFullSpectrum::~CFullSpectrum(void)
 void CFullSpectrum::ToHost(float* pfFullSpect)
 {
 	size_t tBytes = sizeof(float) * m_aiFullSize[0] * m_aiFullSize[1];
-	cudaMemcpy(pfFullSpect, m_gfFullSpect, tBytes, cudaMemcpyDefault);
+	hipMemcpy(pfFullSpect, m_gfFullSpect, tBytes, hipMemcpyDefault);
 }
 
 void CFullSpectrum::Create

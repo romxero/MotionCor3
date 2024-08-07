@@ -1,3 +1,7 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMainInc.h"
 #include <Util/Util_Time.h>
 #include <stdio.h>
@@ -6,8 +10,8 @@
 #include <memory.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 #include <nvToolsExt.h>
 
 using namespace MotionCor2;
@@ -32,16 +36,16 @@ CGpuBuffer::~CGpuBuffer(void)
 void CGpuBuffer::Clean(void)
 {
 	if(m_pvGpuFrames == 0L && m_ppvCpuFrames == 0L) return;
-	cudaSetDevice(m_iGpuID);
-	cudaDeviceSynchronize();
+	hipSetDevice(m_iGpuID);
+	hipDeviceSynchronize();
 	//----------------------
 	if(m_pvGpuFrames != 0L) 
-	{	cudaFree(m_pvGpuFrames);
+	{	hipFree(m_pvGpuFrames);
 		m_pvGpuFrames = 0L;
 	}
 	if(m_ppvCpuFrames != 0L) 
 	{	for(int i=0; i<m_iMaxCpuFrms; i++)
-		{	cudaFreeHost(m_ppvCpuFrames[i]);
+		{	hipHostFree(m_ppvCpuFrames[i]);
 		}
 		delete[] m_ppvCpuFrames;
 		m_ppvCpuFrames = 0L;
@@ -62,7 +66,7 @@ void CGpuBuffer::Create(size_t tFrmBytes, int iNumFrames, int iGpuID)
 	m_iGpuID = iGpuID;
 	if(m_iNumFrames <= 0) return;
 	//---------------------------
-	cudaSetDevice(m_iGpuID);
+	hipSetDevice(m_iGpuID);
 	mCalcGpuFrames();
 	//---------------
 	nvtxRangePushA("CGpuBuffer: allocate GPU memory");
@@ -72,7 +76,7 @@ void CGpuBuffer::Create(size_t tFrmBytes, int iNumFrames, int iGpuID)
 	afGBs[0] = (float)(tBytes / (1024.0 * 1024.0 * 1024.0));
 	if(tBytes > 0) 
 	{	utilTime.Measure();
-		cudaMalloc(&m_pvGpuFrames, tBytes);
+		hipMalloc(&m_pvGpuFrames, tBytes);
 		afTimes[0] = utilTime.GetElapsedSeconds();
 	}
 	nvtxRangePop();
@@ -134,9 +138,9 @@ void* CGpuBuffer::GetFrame(int iFrame)
 
 void CGpuBuffer::mCalcGpuFrames(void)
 {
-	cudaSetDevice(m_iGpuID);
+	hipSetDevice(m_iGpuID);
 	size_t tTotal = 0, tFree = 0;
-	cudaMemGetInfo(&tFree, &tTotal);
+	hipMemGetInfo(&tFree, &tTotal);
 	//------------------------------
 	CInput* pInput = CInput::GetInstance();
 	float fReserve = 1.0f - pInput->m_fGpuMemUsage;
@@ -166,7 +170,7 @@ void CGpuBuffer::mCreateCpuBuf(int iNumFrms)
 	//-----------------
 	for(int i=m_iMaxCpuFrms; i<iNumFrms; i++)
         {       void* pvFrm = 0L;
-                cudaMallocHost(&pvFrm, m_tFmBytes);
+                hipHostMalloc(&pvFrm, m_tFmBytes, hipHostMallocDefault);
                 ppvFrames[i] = pvFrm;
         }
 	//-----------------

@@ -1,12 +1,16 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
 #include <Util/Util_Time.h>
 #include <memory.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 
 using namespace MotionCor2;
 using namespace MotionCor2::Align;
@@ -50,8 +54,8 @@ void CExtractPatch::Run(int iNthGpu)
 	m_iNthGpu = iNthGpu;
 	s_pPatBuffer->SetDevice(m_iNthGpu);
 	//---------------------------------
-	cudaStreamCreate(&m_aStream[0]);
-	cudaStreamCreate(&m_aStream[1]);
+	hipStreamCreate(&m_aStream[0]);
+	hipStreamCreate(&m_aStream[1]);
 	mProcessCpuFrames();
 	mProcessGpuFrames();
 }
@@ -59,10 +63,10 @@ void CExtractPatch::Run(int iNthGpu)
 void CExtractPatch::Wait(void)
 {
 	s_pPatBuffer->SetDevice(m_iNthGpu);
-	cudaStreamSynchronize(m_aStream[0]);
-	cudaStreamSynchronize(m_aStream[1]);
-	cudaStreamDestroy(m_aStream[0]);
-	cudaStreamDestroy(m_aStream[1]);
+	hipStreamSynchronize(m_aStream[0]);
+	hipStreamSynchronize(m_aStream[1]);
+	hipStreamDestroy(m_aStream[0]);
+	hipStreamDestroy(m_aStream[1]);
 }
 
 void CExtractPatch::mProcessGpuFrames(void)
@@ -86,10 +90,10 @@ void CExtractPatch::mProcessCpuFrames(void)
 	}
 }
 
-void CExtractPatch::mProcessFrame(int iFrame, cudaStream_t stream)
+void CExtractPatch::mProcessFrame(int iFrame, hipStream_t stream)
 {
-	cufftComplex* gPatCmp = s_pPatBuffer->GetFrame(m_iNthGpu, iFrame);
-	cufftComplex* gXcfCmp = s_pXcfBuffer->GetFrame(m_iNthGpu, iFrame);
+	hipfftComplex* gPatCmp = s_pPatBuffer->GetFrame(m_iNthGpu, iFrame);
+	hipfftComplex* gXcfCmp = s_pXcfBuffer->GetFrame(m_iNthGpu, iFrame);
 	float* gfPatFrm = reinterpret_cast<float*>(gPatCmp);
 	float* gfXcfFrm = reinterpret_cast<float*>(gXcfCmp);
 	//--------------------------------------------------

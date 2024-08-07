@@ -1,9 +1,13 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMainInc.h"
 #include "TiffUtil/CTiffFileInc.h"
 #include <Mrcfile/CMrcFileInc.h>
 #include <Util/Util_Time.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <nvToolsExt.h>
@@ -49,7 +53,7 @@ int main(int argc, char* argv[])
 	bool bHasFreeGpus = mCheckFreeGpus();
 	if(!mCheckFreeGpus()) return eNoFreeGPUs;
 	//-----------------
-	cuInit(0);
+	hipInit(0);
 	if(mCheckSame()) return eInputOutputSame;
 	//-----------------
 	bool bLoad = mCheckLoad();
@@ -162,21 +166,21 @@ bool mCheckGPUs(void)
 	int* piGpuMems = new int[pInput->m_iNumGpus];
 	//-------------------------------------------
 	int iCount = 0;
-	cudaDeviceProp aDeviceProp;
+	hipDeviceProp_t aDeviceProp;
 	//-------------------------
 	for(int i=0; i<pInput->m_iNumGpus; i++)
 	{	int iGpuId = pInput->m_piGpuIds[i];
-		cudaError_t tErr = cudaSetDevice(iGpuId);
-		if(tErr != cudaSuccess)
+		hipError_t tErr = hipSetDevice(iGpuId);
+		if(tErr != hipSuccess)
 		{	printf
 			(  "Info: skip device %d, %s\n",
 			   pInput->m_piGpuIds[i],
-			   cudaGetErrorString(tErr)
+			   hipGetErrorString(tErr)
 			);
 			continue;
 		}
 		piGpuIds[iCount] = iGpuId;
-		cudaGetDeviceProperties(&aDeviceProp, iGpuId);
+		hipGetDeviceProperties(&aDeviceProp, iGpuId);
 		piGpuMems[iCount] = (int)(aDeviceProp.totalGlobalMem
 			/ (1024 * 1024));
 		iCount++;
@@ -203,22 +207,22 @@ bool mCheckGPUs(void)
 
 void mCheckPeerAccess(void)
 {
-	cudaError_t cuErr;
+	hipError_t cuErr;
 	CInput* pInput = CInput::GetInstance();
 	if(pInput->m_iNumGpus == 1) return;
 	//---------------------------------
 	for(int i=0; i<pInput->m_iNumGpus; i++)
-	{	cudaSetDevice(pInput->m_piGpuIds[i]);
+	{	hipSetDevice(pInput->m_piGpuIds[i]);
 		for(int j=0; j<pInput->m_iNumGpus; j++)
 		{	if(j == i) continue;
-			cuErr = cudaDeviceEnablePeerAccess
+			cuErr = hipDeviceEnablePeerAccess
 			( pInput->m_piGpuIds[j], 0 );
-			if(cuErr == cudaSuccess) continue;
+			if(cuErr == hipSuccess) continue;
 			printf("mCheckGPUs: GPU %d cannot access %d memory\n"
 				"   %s.\n\n", pInput->m_piGpuIds[i], 
 				pInput->m_piGpuIds[j], 
-				cudaGetErrorString(cuErr));
+				hipGetErrorString(cuErr));
 		}
 	}
-	cudaSetDevice(pInput->m_piGpuIds[0]);
+	hipSetDevice(pInput->m_piGpuIds[0]);
 }

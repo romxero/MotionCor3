@@ -1,3 +1,9 @@
+
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMrcUtilInc.h"
 #include "../CMainInc.h"
 #include <Mrcfile/CMrcFileInc.h>

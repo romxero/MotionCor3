@@ -1,3 +1,7 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CFindCtfInc.h"
 #include "../Util/CUtilInc.h"
 #include "../MrcUtil/CMrcUtilInc.h"
@@ -5,8 +9,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <memory.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+
 
 using namespace MotionCor2::FindCtf;
 
@@ -28,7 +32,7 @@ void CFindCtf1D::Clean(void)
 		m_pFindDefocus1D = 0L;
 	}
 	if(m_gfRadialAvg != 0L)
-	{	cudaFree(m_gfRadialAvg);
+	{	hipFree(m_gfRadialAvg);
 		m_gfRadialAvg = 0L;
 	}
 }
@@ -38,7 +42,7 @@ void CFindCtf1D::Setup1(int* piSpectSize)
 	this->Clean();
 	CFindCtfBase::Setup1(piSpectSize);
 	//-----------------
-	cudaMalloc(&m_gfRadialAvg, sizeof(float) * m_aiSpectSize[0]);
+	hipMalloc(&m_gfRadialAvg, sizeof(float) * m_aiSpectSize[0]);
 	//-----------------
 	m_pFindDefocus1D = new CFindDefocus1D;
 	m_pFindDefocus1D->Setup1(m_aiSpectSize[0]);

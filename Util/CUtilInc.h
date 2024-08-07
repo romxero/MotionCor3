@@ -1,6 +1,8 @@
 #pragma once
+#include <hip/hip_runtime.h>
+
 #include <Mrcfile/CMrcFileInc.h>
-#include <cufft.h>
+#include <hipfft/hipfft.h>
 #include <pthread.h>
 
 namespace MotionCor2
@@ -20,29 +22,29 @@ unsigned char* CGetUCharBuf(int* piSize, bool bZero);
 float* GGetFloatBuf(int* piSize, bool bZero);
 float* CGetFloatBuf(int* piSize, bool bZero);
 
-cufftComplex* GGetCmpBuf(int* piSize, bool bZero);
-cufftComplex* CGetCmpBuf(int* piSize, bool bZero);
+hipfftComplex* GGetCmpBuf(int* piSize, bool bZero);
+hipfftComplex* CGetCmpBuf(int* piSize, bool bZero);
 
 void* GetPinnedBuf(int* piSize, int iPixelBytes, bool bZero);
 void* GetGpuBuf(int* piSize, int iPixelBytes, bool bZero);
 
 unsigned char* GCopyFrame(unsigned char* pucSrc, int* piSize, 
-   cudaStream_t stream=0);
+   hipStream_t stream=0);
 unsigned char* CCopyFrame(unsigned char* pucSrc, int* piSize, 
-   cudaStream_t stream=0);
+   hipStream_t stream=0);
 void CopyFrame(unsigned char* pucSrc, unsigned char* pucDst, 
-   int* piSize, cudaStream_t stream=0);
+   int* piSize, hipStream_t stream=0);
 
-float* GCopyFrame(float* pfSrc, int* piSize, cudaStream_t stream=0);
-float* CCopyFrame(float* pfSrc, int* piSize, cudaStream_t stream=0);
-void CopyFrame(float* pfSrc, float* pfDst, int* piSize, cudaStream_t stream=0);
+float* GCopyFrame(float* pfSrc, int* piSize, hipStream_t stream=0);
+float* CCopyFrame(float* pfSrc, int* piSize, hipStream_t stream=0);
+void CopyFrame(float* pfSrc, float* pfDst, int* piSize, hipStream_t stream=0);
 
-cufftComplex* GCopyFrame(cufftComplex* pCmpSrc, int* piSize, 
-   cudaStream_t stream=0);
-cufftComplex* CCopyFrame(cufftComplex* pCmpSrc, int* piSize, 
-   cudaStream_t stream=0);
-void CopyFrame(cufftComplex* pCmpSrc, cufftComplex* pCmpDst, 
-   int* piSize, cudaStream_t stream=0);
+hipfftComplex* GCopyFrame(hipfftComplex* pCmpSrc, int* piSize, 
+   hipStream_t stream=0);
+hipfftComplex* CCopyFrame(hipfftComplex* pCmpSrc, int* piSize, 
+   hipStream_t stream=0);
+void CopyFrame(hipfftComplex* pCmpSrc, hipfftComplex* pCmpDst, 
+   int* piSize, hipStream_t stream=0);
 
 size_t GetGpuMemory(int iGpuId);
 
@@ -61,13 +63,13 @@ public:
 	( float* gfImg, 
 	  int* piImgSize, 
 	  float* gfPadImg,
-	  cudaStream_t stream
+	  hipStream_t stream
 	);
 	void Unpad
 	( float* gfPadImg, 
 	  int* piPadSize, 
 	  float* gfImg,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 };
 
@@ -97,26 +99,26 @@ public:
 	void CreateInversePlan(int* piSize, bool bCmp);
 	void DestroyPlan(void);
 	bool Forward
-	( float* gfPadImg, cufftComplex* gCmpImg,
-	  bool bNorm, cudaStream_t stream = 0
+	( float* gfPadImg, hipfftComplex* gCmpImg,
+	  bool bNorm, hipStream_t stream = 0
 	);
 	bool Forward
 	( float* gfPadImg, bool bNorm, 
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
-	cufftComplex* ForwardH2G(float* pfImg, bool bNorm);
+	hipfftComplex* ForwardH2G(float* pfImg, bool bNorm);
 	bool Inverse
-	( cufftComplex* gCom, float* gfPadImg, 
-	  cudaStream_t stream = 0
+	( hipfftComplex* gCom, float* gfPadImg, 
+	  hipStream_t stream = 0
 	);
-	bool Inverse(cufftComplex* gCom, cudaStream_t stream=0);
-	float* InverseG2H(cufftComplex* gCmp);
-	void SubtractMean(cufftComplex* gComplex);
+	bool Inverse(hipfftComplex* gCom, hipStream_t stream=0);
+	float* InverseG2H(hipfftComplex* gCmp);
+	void SubtractMean(hipfftComplex* gComplex);
 private:
-	bool mCheckError(cufftResult* pResult, const char* pcFormat);
-	const char* mGetErrorEnum(cufftResult error);
-	cufftHandle m_aPlan;
-	cufftType m_aType;
+	bool mCheckError(hipfftResult* pResult, const char* pcFormat);
+	const char* mGetErrorEnum(hipfftResult error);
+	hipfftHandle m_aPlan;
+	hipfftType m_aType;
 	int m_iFFTx;
 	int m_iFFTy;
 };
@@ -134,12 +136,12 @@ public:
 	  bool bForward
 	);
 	void Forward(float* gfPadLines,bool bNorm);
-	void Inverse(cufftComplex* gCmpLines);
+	void Inverse(hipfftComplex* gCmpLines);
 private:
 	int m_iFFTSize;
 	int m_iNumLines;
-	cufftType m_cufftType;
-	cufftHandle m_cufftPlan;
+	hipfftType m_cufftType;
+	hipfftHandle m_cufftPlan;
 };
 
 class GFFTUtil2D
@@ -149,23 +151,23 @@ public:
 	~GFFTUtil2D(void);
 	//-----------------
 	void Multiply
-	( cufftComplex* gComp, int* piCmpSize, 
-	  float fFactor, cudaStream_t stream = 0
+	( hipfftComplex* gComp, int* piCmpSize, 
+	  float fFactor, hipStream_t stream = 0
 	);
 	void GetAmp
-	( cufftComplex* gComp, int* piCmpSize,
+	( hipfftComplex* gComp, int* piCmpSize,
 	   float* pfAmpRes, bool bGpuRes,
-           cudaStream_t stream = 0
+           hipStream_t stream = 0
 	);
 	void Shift
-	( cufftComplex* gComp, int* piCmpSize,
+	( hipfftComplex* gComp, int* piCmpSize,
 	  float* pfShift,
-          cudaStream_t stream = 0
+          hipStream_t stream = 0
 	);
 	void Lowpass
-	( cufftComplex* gInCmp, cufftComplex* gOutCmp,
+	( hipfftComplex* gInCmp, hipfftComplex* gOutCmp,
 	  int* piCmpSize, float fBFactor,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 };
 
@@ -191,7 +193,7 @@ public:
 	void DoIt
 	( float* gfImg, int* piSize, bool bPadded,
 	  float fMean, float fStd,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 };
 
@@ -232,12 +234,12 @@ public:
 	   float* pfBinning
 	);
 	void DoIt
-	( cufftComplex* gCmpIn, 
+	( hipfftComplex* gCmpIn, 
 	  int* piSizeIn,
-	  cufftComplex* gCmpOut, 
+	  hipfftComplex* gCmpOut, 
 	  int* piSizeOut,
 	  bool bSum,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 };
 
@@ -253,23 +255,23 @@ public:
 	   float fFactor2,
 	   float* gfSum,
 	   int* piFrmSize,
-           cudaStream_t stream=0
+           hipStream_t stream=0
 	);
 	void DoIt
-	(  cufftComplex* gCmp1,
+	(  hipfftComplex* gCmp1,
 	   float fFactor1,
-	   cufftComplex* gCmp2,
+	   hipfftComplex* gCmp2,
 	   float fFactor2,
-	   cufftComplex* gCmpSum,
+	   hipfftComplex* gCmpSum,
 	   int* piCmpSize,
-           cudaStream_t stream=0
+           hipStream_t stream=0
 	);
 	void DoIt
 	(  unsigned char* gucFrm1,
 	   unsigned char* gucFrm2,
 	   unsigned char* gucSum,
 	   int* piFrmSize,
-	   cudaStream_t stream=0
+	   hipStream_t stream=0
 	);
 };
 
@@ -282,10 +284,10 @@ public:
 	void Setup(int* piCmpSize, float fBin);
 	void Setup(int* piCmpSizeIn, int* piCmpSizeOut);
 	void DoIt
-	( cufftComplex* gCmpFrm, 
-	  cufftComplex* gCmpBuf, 
+	( hipfftComplex* gCmpFrm, 
+	  hipfftComplex* gCmpBuf, 
 	  float* gfImg,
-	  cudaStream_t stream
+	  hipStream_t stream
 	);
 	static void GetCmpSize
 	( int* piCmpSizeIn, 
@@ -308,9 +310,9 @@ class GPositivity2D
 public:
 	GPositivity2D(void);
 	~GPositivity2D(void);
-	void DoIt(float* gfImg, int* piImgSize, cudaStream_t stream = 0);
+	void DoIt(float* gfImg, int* piImgSize, hipStream_t stream = 0);
 	void AddVal(float* gfImg, int* piImgSize, float fVal,
-	   cudaStream_t stream = 0);
+	   hipStream_t stream = 0);
 };
 
 class GGriddingCorrect
@@ -319,9 +321,9 @@ public:
 	GGriddingCorrect(void);
 	~GGriddingCorrect(void);
 	void DoCmp
-	( cufftComplex* gCmp, 
+	( hipfftComplex* gCmp, 
 	  int* piCmpSize,
-          cudaStream_t stream=0
+          hipStream_t stream=0
 	);
 };   
 
@@ -365,7 +367,7 @@ public:
 	CSaveTempMrc(void);
 	~CSaveTempMrc(void);
 	void SetFile(char* pcMain, const char* pcMinor);
-	void GDoIt(cufftComplex* gCmp, int* piCmpSize);
+	void GDoIt(hipfftComplex* gCmp, int* piCmpSize);
         void GDoIt(float* gfImg, int* piSize);
         void GDoIt(unsigned char* gucImg, int* piSize);
         void DoIt(void* pvImg, int iMode, int* piSize);
@@ -429,12 +431,12 @@ public:
 	( float* gfImg,
 	  int iExponent,
 	  bool bSync,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 	float GetResult(void);
 	void Test(float* gfImg, float fExp);
 private:
-	void mDoIt(float* gfImg, float* gfSum, cudaStream_t stream);
+	void mDoIt(float* gfImg, float* gfSum, hipStream_t stream);
 	int m_aiImgSize[2];
 	int m_iPadX;
 	float* m_gfBuf;
@@ -449,8 +451,8 @@ public:
 	~GFindMinMax2D(void);
 	void Clean(void);
 	void SetSize(int* piImgSize, bool bPadded);
-	float DoMin(float* gfImg, bool bSync, cudaStream_t stream = 0);
-	float DoMax(float* gfImg, bool bSync, cudaStream_t stream = 0);
+	float DoMin(float* gfImg, bool bSync, hipStream_t stream = 0);
+	float DoMax(float* gfImg, bool bSync, hipStream_t stream = 0);
 	float GetResult(void);
 	void Test(float* gfImg);
 private:
@@ -533,15 +535,15 @@ public:
 	  float* pDst, 
 	  int iCpySizeX, 
 	  int* piDstSize,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 	static void DoIt
-	( cufftComplex* pSrc, 
+	( hipfftComplex* pSrc, 
 	  int iSrcSizeX, 
-	  cufftComplex* pDst,
+	  hipfftComplex* pDst,
 	  int iCpySizeX,
 	  int* piDstSize,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 };
 
@@ -551,18 +553,18 @@ public:
 	GPhaseShift2D(void);
 	~GPhaseShift2D(void);
 	void DoIt
-	( cufftComplex* gInCmp,
+	( hipfftComplex* gInCmp,
 	  int* piCmpSize,
 	  float* pfShift,
 	  bool bSum,
-	  cufftComplex* gOutCmp,
-	  cudaStream_t stream = 0
+	  hipfftComplex* gOutCmp,
+	  hipStream_t stream = 0
 	);
 	void DoIt
-	( cufftComplex* gCmpFrm,
+	( hipfftComplex* gCmpFrm,
 	  int* piCmpSize,
 	  float* pfShift,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 };
 
@@ -572,8 +574,8 @@ public:
 	GCorrLinearInterp(void);
 	~GCorrLinearInterp(void);
 	void DoIt
-	( cufftComplex* gCmpFrm, int* piCmpSize,
-	  cudaStream_t stream = 0
+	( hipfftComplex* gCmpFrm, int* piCmpSize,
+	  hipStream_t stream = 0
 	);
 };
 
@@ -594,7 +596,7 @@ protected:
 	void mCreateInverseFFTs(int* piSize, bool bCmp = true);
 	void mDeleteInverseFFTs(void);
 	//----------------------------
-	cudaStream_t* m_pStreams;
+	hipStream_t* m_pStreams;
 	CCufft2D* m_pForwardFFTs;
 	CCufft2D* m_pInverseFFTs;
 	int* m_piGpuIDs;

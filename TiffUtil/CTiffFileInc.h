@@ -1,4 +1,6 @@
 #pragma once
+#include <hip/hip_runtime.h>
+
 #include <tiffio.h>
 #include "../MrcUtil/CMrcUtilInc.h"
 

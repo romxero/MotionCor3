@@ -1,12 +1,16 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../Correct/CCorrectInc.h"
 #include "../Util/CUtilInc.h"
 #include "../MrcUtil/CMrcUtilInc.h"
 #include <memory.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <nvToolsExt.h>
 
 using namespace MotionCor2;
@@ -21,13 +25,13 @@ CEarlyMotion::CEarlyMotion(void)
 CEarlyMotion::~CEarlyMotion(void)
 {
 	int iGpuID = -1;
-	cudaGetDevice(&iGpuID);
+	hipGetDevice(&iGpuID);
 	//---------------------
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	pBufferPool->SetDevice(0);
-	if(m_gCmpRef != 0L) cudaFree(m_gCmpRef);
+	if(m_gCmpRef != 0L) hipFree(m_gCmpRef);
 	//--------------------------------------
-	if(iGpuID >= 0) cudaSetDevice(iGpuID);
+	if(iGpuID >= 0) hipSetDevice(iGpuID);
 }
 
 void CEarlyMotion::Setup(EBuffer eBuffer, float fBFactor)
@@ -44,10 +48,10 @@ void CEarlyMotion::Setup(EBuffer eBuffer, float fBFactor)
 	memcpy(m_aiCmpSize, pStackBuffer->m_aiCmpSize, sizeof(int) * 2);
 	//--------------------------------------------------------------
 	int iGpuID = -1;
-	cudaGetDevice(&iGpuID);
+	hipGetDevice(&iGpuID);
 	pBufferPool->SetDevice(0);
 	//------------------------
-	if(m_gCmpRef != 0L) cudaFree(m_gCmpRef);
+	if(m_gCmpRef != 0L) hipFree(m_gCmpRef);
 	m_gCmpRef = Util::GGetCmpBuf(m_aiCmpSize, false);
 	//-----------------------------------------------
 	m_aiSeaSize[0] = 16; m_aiSeaSize[1] = 16;
@@ -58,7 +62,7 @@ void CEarlyMotion::Setup(EBuffer eBuffer, float fBFactor)
 	m_pInverseFFT = pBufferPool->GetInverseFFT(0);
 	m_pInverseFFT->CreateInversePlan(m_aiCmpSize, true);
 	//--------------------------------------------------
-	if(iGpuID >= 0) cudaSetDevice(iGpuID);
+	if(iGpuID >= 0) hipSetDevice(iGpuID);
 }
 
 void CEarlyMotion::DoIt
@@ -82,17 +86,17 @@ void CEarlyMotion::DoIt
 	CAlignedSum::DoIt(m_eBuffer, m_pStackShift, m_aiSumRange);
 	//--------------------------------------------------------
 	int iGpuID = -1;
-	cudaGetDevice(&iGpuID);
+	hipGetDevice(&iGpuID);
 	//------------------------
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	pBufferPool->SetDevice(0);
 	CStackBuffer* pSumBuffer = pBufferPool->GetBuffer(EBuffer::sum);
-	cufftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
-	size_t tBytes = sizeof(cufftComplex) * m_aiCmpSize[0] * m_aiCmpSize[1];
-	cudaMemcpy(m_gCmpRef, gCmpSum, tBytes, cudaMemcpyDefault);
+	hipfftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
+	size_t tBytes = sizeof(hipfftComplex) * m_aiCmpSize[0] * m_aiCmpSize[1];
+	hipMemcpy(m_gCmpRef, gCmpSum, tBytes, hipMemcpyDefault);
 	//---------------------------------------------------------------------
 	mDoIt();
-	if(iGpuID >= 0) cudaSetDevice(iGpuID);
+	if(iGpuID >= 0) hipSetDevice(iGpuID);
 }
 
 void CEarlyMotion::mDoIt(void)
@@ -223,7 +227,7 @@ void CEarlyMotion::mCorrelate(int iStep, CStackShift* pStackShift)
 	//----------------------------------------------------
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	CStackBuffer* pSumBuffer = pBufferPool->GetBuffer(EBuffer::sum);
-	cufftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
 	//-------------------------------------------------
 	int iSeaSize = m_aiSeaSize[0] * m_aiSeaSize[1];
 	float* pfPinnedBuf = (float*)pBufferPool->GetPinnedBuf(0);
@@ -234,7 +238,7 @@ void CEarlyMotion::mCorrelate(int iStep, CStackShift* pStackShift)
 
 void CEarlyMotion::mFindPeaks(float* pfPeaks)
 {
-	cudaStreamSynchronize((cudaStream_t)0);
+	hipStreamSynchronize((hipStream_t)0);
 	//-------------------------------------
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
 	float* pfPinnedBuf = (float*)pBufferPool->GetPinnedBuf(0);
@@ -252,7 +256,7 @@ void CEarlyMotion::mFindPeaks(float* pfPeaks)
 
 void CEarlyMotion::mFindPeak(int iPeak, float* pfPeak)
 {
-	cudaStreamSynchronize((cudaStream_t)0);
+	hipStreamSynchronize((hipStream_t)0);
 	//-------------------------------------
 	CBufferPool* pBufferPool = CBufferPool::GetInstance();
         float* pfPinnedBuf = (float*)pBufferPool->GetPinnedBuf(0);

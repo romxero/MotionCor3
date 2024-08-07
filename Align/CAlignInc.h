@@ -3,9 +3,9 @@
 #include "../Util/CUtilInc.h"
 #include "../DataUtil/CDataUtilInc.h"
 #include <Util/Util_Thread.h>
-#include <cuda.h>
-#include <cufft.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hipfft/hipfft.h>
+
 
 namespace MotionCor2
 {
@@ -56,14 +56,14 @@ public:
 	CCreateAlnSum(void);
 	~CCreateAlnSum(void);
 	float* DoIt
-	( cufftComplex* gCmpSum,
+	( hipfftComplex* gCmpSum,
 	  int* piCmpSize,
 	  float fBin
 	);
 	int m_aiImgSize[2];
 private:
 	void mFourierBin(float fBin);
-	cufftComplex* m_gCmpSum;
+	hipfftComplex* m_gCmpSum;
 	int m_aiCmpSize[2];
 };
 
@@ -84,8 +84,8 @@ private:
 	CStackBuffer* m_pSumBuffer;
 	CStackShift* m_pStackShift;
 	int m_iNthGpu;
-	cudaStream_t m_aStreams[2];
-	cufftComplex* m_gCmpSums[2];
+	hipStream_t m_aStreams[2];
+	hipfftComplex* m_gCmpSums[2];
 	int m_iAbsFrm;
 	int m_iStream;
 };
@@ -105,12 +105,12 @@ public:
 private:
 	void mTransformGpuFrames(void);
 	void mTransformCpuFrames(void);
-	void mTransformFrame(cufftComplex* gCmpFrm);
+	void mTransformFrame(hipfftComplex* gCmpFrm);
 	//------------------------------------------
 	CStackBuffer* m_pFrmBuffer;
 	CStackBuffer* m_pTmpBuffer;
 	int m_iNthGpu;
-	cudaStream_t m_aStreams[2];
+	hipStream_t m_aStreams[2];
 	Util::CCufft2D* m_pCufft2D;
 };
 
@@ -131,7 +131,7 @@ private:
 	CStackBuffer* m_pSumBuffer;
 	int m_iNthGpu;
 	int m_iStream;
-	cudaStream_t m_aStreams[2];
+	hipStream_t m_aStreams[2];
 };
 
 class CInterpolateShift
@@ -284,11 +284,11 @@ public:
 	void SetSize(int* piCmpSize, int* piSeaSize);
 	void SetSubtract(bool bSubtract);
 	void DoIt
-	( cufftComplex* gCmpSum, 
-	  cufftComplex* gCmpXcf,
+	( hipfftComplex* gCmpSum, 
+	  hipfftComplex* gCmpXcf,
 	  float* pfPinnedXcf,
 	  Util::CCufft2D* pInverseFFT,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 private:
 	float m_fBFactor;
@@ -324,10 +324,10 @@ public:
 	~GCC2D(void);
 	void SetSize(int* piCmpSize);
 	void SetBFactor(float fBFactor);
-	float DoIt(cufftComplex* gCmp1, cufftComplex* gCmp2,
-	   cudaStream_t stream);
+	float DoIt(hipfftComplex* gCmp1, hipfftComplex* gCmp2,
+	   hipStream_t stream);
 private:
-	void mTest(cufftComplex* gCmp1, cufftComplex* gCmp2);
+	void mTest(hipfftComplex* gCmp1, hipfftComplex* gCmp2);
 	dim3 m_aGridDim;
 	dim3 m_aBlockDim;
 	int m_aiCmpSize[2];
@@ -356,7 +356,7 @@ private:
 	void mFindPeaks(float* pfPeaks);
 	void mFindPeak(int iPeak, float* pfPeak);
 	float m_fBFactor;
-	cufftComplex* m_gCmpRef;
+	hipfftComplex* m_gCmpRef;
 	EBuffer m_eBuffer;
 	int m_aiCmpSize[2];
 	GCorrelateSum2D m_aGCorrelateSum;
@@ -403,8 +403,8 @@ private:
 	Util::CCufft2D* m_pInverseFFT;
 	DU::CFmGroupParam* m_pFmGroupParam;
 	GCorrelateSum2D m_aGCorrelateSum;
-	cufftComplex* m_gCmpSum;
-	cudaStream_t m_aStreams[2];
+	hipfftComplex* m_gCmpSum;
+	hipStream_t m_aStreams[2];
 	int m_aiGpuFmRange[2];
 	bool* m_pbGpuGroups;
 	int m_iNthGpu;
@@ -477,15 +477,15 @@ private:
 	void mGenStack(void);
 	void mCropFrames(int iNthGpu);
 	void mCropFrame
-	( cufftComplex* gCmpFrm,
-	  cufftComplex* gCmpBuf,
-	  cudaStream_t stream,
+	( hipfftComplex* gCmpFrm,
+	  hipfftComplex* gCmpBuf,
+	  hipStream_t stream,
 	  int iNthGpu
 	);
 	void mUnpad
-	( cufftComplex* gCmpPad,
+	( hipfftComplex* gCmpPad,
 	  float* gfUnpad,
-	  cudaStream_t stream = 0
+	  hipStream_t stream = 0
 	);
 };
 
@@ -522,7 +522,7 @@ private:
 	  double* pdMean, double* pdStd
 	);
 	void mFindGraphenePeaks
-	( cufftComplex* gCmp,
+	( hipfftComplex* gCmp,
 	  int* piCmpSize
 	);
 	CPatchShifts* m_pPatchShifts;
@@ -559,9 +559,9 @@ public:
 private:
 	void mProcessGpuFrames(void);
 	void mProcessCpuFrames(void);
-	void mProcessFrame(int iFrame, cudaStream_t stream);
+	void mProcessFrame(int iFrame, hipStream_t stream);
 	int m_iNthGpu;
-	cudaStream_t m_aStream[2];
+	hipStream_t m_aStream[2];
 };
      
 
@@ -670,7 +670,7 @@ public:
 	GNormByStd2D(void);
 	~GNormByStd2D(void);
 	void DoIt(float* gfImg, int* piImgSize, bool bPadded,
-	   int* piWinSize, cudaStream_t stream = 0);
+	   int* piWinSize, hipStream_t stream = 0);
 };
 
 class CDetectFeatures

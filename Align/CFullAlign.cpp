@@ -1,3 +1,7 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CAlignInc.h"
 #include "../CMainInc.h"
 #include "../Correct/CCorrectInc.h"
@@ -5,9 +9,9 @@
 #include "../MrcUtil/CMrcUtilInc.h"
 #include <memory.h>
 #include <stdio.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <Util/Util_Time.h>
 #include <nvToolsExt.h>
 
@@ -23,9 +27,9 @@ static void mCalcSumMean(EBuffer eBuffer, bool bTransform)
 	//--------------------------------------------------------------
 	int* piCmpSize = pStkBuffer->m_aiCmpSize;
 	size_t tBytes = pStkBuffer->m_tFmBytes;
-	cufftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
-	cufftComplex* gCmpBuf = pTmpBuffer->GetFrame(0, 0);
-	cudaMemcpy(gCmpBuf, gCmpSum, tBytes, cudaMemcpyDefault);
+	hipfftComplex* gCmpSum = pSumBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpBuf = pTmpBuffer->GetFrame(0, 0);
+	hipMemcpy(gCmpBuf, gCmpSum, tBytes, hipMemcpyDefault);
 	//------------------------------------------------------
 	if(bTransform)
 	{	Util::CCufft2D cufft2D;
@@ -38,7 +42,7 @@ static void mCalcSumMean(EBuffer eBuffer, bool bTransform)
 	//----------------------------------
 	int iPadSize = aiPadSize[0] * aiPadSize[1];
 	float* pfPadBuf = new float[iPadSize];
-	cudaMemcpy(pfPadBuf, gCmpBuf, tBytes, cudaMemcpyDefault);
+	hipMemcpy(pfPadBuf, gCmpBuf, tBytes, hipMemcpyDefault);
 	//-------------------------------------------------------
 	double dMean = 0;
 	for(int y=0; y<aiPadSize[1]; y++)

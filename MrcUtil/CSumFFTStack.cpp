@@ -1,9 +1,13 @@
+
+
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include "CMrcUtilInc.h"
 #include "../CMainInc.h"
 #include "../Util/CUtilInc.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cufft.h>
+#include <hip/hip_runtime.h>
+
+#include <hipfft/hipfft.h>
 #include <memory.h>
 #include <stdio.h>
 #include <nvToolsExt.h>
@@ -17,13 +21,13 @@ static CStackBuffer* s_pTmpBuffer = 0L;
 static CStackBuffer* s_pSumBuffer = 0L; 
 static bool s_bSplitSum = false;
 
-static void mCalcMean(cufftComplex* gCmp, int* piCmpSize, int iGpu)
+static void mCalcMean(hipfftComplex* gCmp, int* piCmpSize, int iGpu)
 {
 	int iSizeX = (piCmpSize[0] - 1) * 2;
 	int iPadSize = piCmpSize[0] * 2 * piCmpSize[1];
 	float* pfPadBuf = new float[iPadSize];
-	cudaMemcpy(pfPadBuf, gCmp, iPadSize * sizeof(float),
-		cudaMemcpyDefault);
+	hipMemcpy(pfPadBuf, gCmp, iPadSize * sizeof(float),
+		hipMemcpyDefault);
 	double dMean = 0.0;
 	for(int y=0; y<piCmpSize[1]; y++)
 	{	int i = y * piCmpSize[0] * 2;
@@ -41,9 +45,9 @@ static void sDoSplitSum(void)
 	if(!s_bSplitSum) return;
 	//----------------------
 	Util::GAddFrames gAddFrames;
-	cufftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(0, 0);
-	cufftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(0, 1);
-	cufftComplex* gCmpSum2 = s_pSumBuffer->GetFrame(0, 2);
+	hipfftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(0, 1);
+	hipfftComplex* gCmpSum2 = s_pSumBuffer->GetFrame(0, 2);
 	gAddFrames.DoIt(gCmpSum0, 1.0f, gCmpSum1, -1.0f, gCmpSum2,
 	   s_pSumBuffer->m_aiCmpSize);
 }
@@ -88,9 +92,9 @@ void CSumFFTStack::DoIt(int iBuffer, bool bSplitSum)
 	}
 	//----------------------------------------------------
 	pBufferPool->SetDevice(0);
-	cufftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(0, 0);
-	cufftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(0, 1);
-	cufftComplex* gCmpBuf = s_pTmpBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(0, 0);
+	hipfftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(0, 1);
+	hipfftComplex* gCmpBuf = s_pTmpBuffer->GetFrame(0, 0);
 	int* piCmpSize = s_pStkBuffer->m_aiCmpSize;
 	size_t tBytes = s_pStkBuffer->m_tFmBytes;
 	Util::GAddFrames addFrames;
@@ -99,8 +103,8 @@ void CSumFFTStack::DoIt(int iBuffer, bool bSplitSum)
 	{	//------------------------
 		// calculate the whole sum
 		//------------------------
-		cufftComplex* gCmpSum = s_pSumBuffer->GetFrame(i, 0);
-		cudaMemcpy(gCmpBuf, gCmpSum, tBytes, cudaMemcpyDefault);
+		hipfftComplex* gCmpSum = s_pSumBuffer->GetFrame(i, 0);
+		hipMemcpy(gCmpBuf, gCmpSum, tBytes, hipMemcpyDefault);
 		addFrames.DoIt(gCmpSum0, 1.0f, gCmpBuf, 1.0f, gCmpSum0, 
 		   piCmpSize);
 		if(!s_bSplitSum) continue;
@@ -108,7 +112,7 @@ void CSumFFTStack::DoIt(int iBuffer, bool bSplitSum)
 		// calculate the even sum
 		//------------------------
 		gCmpSum = s_pSumBuffer->GetFrame(i, 1);
-		cudaMemcpy(gCmpBuf, gCmpSum, tBytes, cudaMemcpyDefault);
+		hipMemcpy(gCmpBuf, gCmpSum, tBytes, hipMemcpyDefault);
 		addFrames.DoIt(gCmpSum1, 1.0f, gCmpBuf, 1.0f, gCmpSum1,
                    piCmpSize);
 	}
@@ -121,15 +125,15 @@ void CSumFFTStack::mSumFrames(int iNthGpu)
 	m_iNthGpu = iNthGpu;
 	s_pStkBuffer->SetDevice(m_iNthGpu);
 	//---------------------------------
-	cudaStreamCreate(&m_aStreams[0]);
-	cudaStreamCreate(&m_aStreams[1]);	
+	hipStreamCreate(&m_aStreams[0]);
+	hipStreamCreate(&m_aStreams[1]);	
 	//-------------------------------
 	size_t tBytes = s_pStkBuffer->m_tFmBytes;
-	cufftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(m_iNthGpu, 0);
-	cufftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(m_iNthGpu, 1);
-	cudaMemsetAsync(gCmpSum0, 0, tBytes, m_aStreams[0]);
+	hipfftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(m_iNthGpu, 0);
+	hipfftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(m_iNthGpu, 1);
+	hipMemsetAsync(gCmpSum0, 0, tBytes, m_aStreams[0]);
 	if(s_bSplitSum)
-	{	cudaMemsetAsync(gCmpSum1, 0, tBytes, m_aStreams[0]);
+	{	hipMemsetAsync(gCmpSum1, 0, tBytes, m_aStreams[0]);
 	}
 	//--------------------------------------------------
 	m_iStartFrm = s_pStkBuffer->GetStartFrame(m_iNthGpu);
@@ -140,18 +144,18 @@ void CSumFFTStack::mSumFrames(int iNthGpu)
 void CSumFFTStack::mWait(void)
 {
 	s_pStkBuffer->SetDevice(m_iNthGpu);
-	cudaStreamSynchronize(m_aStreams[0]);
-	cudaStreamSynchronize(m_aStreams[1]);
-	cudaStreamDestroy(m_aStreams[0]);
-	cudaStreamDestroy(m_aStreams[1]);
+	hipStreamSynchronize(m_aStreams[0]);
+	hipStreamSynchronize(m_aStreams[1]);
+	hipStreamDestroy(m_aStreams[0]);
+	hipStreamDestroy(m_aStreams[1]);
 }
 
 void CSumFFTStack::mSumGpuFrames(void)
 {
 	int iNumFrames = s_pStkBuffer->GetNumFrames(m_iNthGpu);
-	cufftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(m_iNthGpu, 0);
-	cufftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(m_iNthGpu, 1);
-	cufftComplex* gCmpFrm = 0L;
+	hipfftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(m_iNthGpu, 0);
+	hipfftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(m_iNthGpu, 1);
+	hipfftComplex* gCmpFrm = 0L;
 	int* piCmpSize = s_pStkBuffer->m_aiCmpSize;
 	Util::GAddFrames aGAddFrames;
 	//---------------------------
@@ -176,9 +180,9 @@ void CSumFFTStack::mSumGpuFrames(void)
 void CSumFFTStack::mSumCpuFrames(void)
 {
 	int iNumFrames = s_pStkBuffer->GetNumFrames(m_iNthGpu);
-	cufftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(m_iNthGpu, 0);
-	cufftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(m_iNthGpu, 1);
-	cufftComplex *gCmpBuf = 0L, *pCmpFrm = 0L;
+	hipfftComplex* gCmpSum0 = s_pSumBuffer->GetFrame(m_iNthGpu, 0);
+	hipfftComplex* gCmpSum1 = s_pSumBuffer->GetFrame(m_iNthGpu, 1);
+	hipfftComplex *gCmpBuf = 0L, *pCmpFrm = 0L;
 	int* piCmpSize = s_pStkBuffer->m_aiCmpSize;
 	size_t tBytes = s_pStkBuffer->m_tFmBytes;
 	Util::GAddFrames aGAddFrames;
@@ -190,10 +194,10 @@ void CSumFFTStack::mSumCpuFrames(void)
 		pCmpFrm = s_pStkBuffer->GetFrame(m_iNthGpu, i);
 		gCmpBuf = s_pTmpBuffer->GetFrame(m_iNthGpu, iStream);
 		//---------------------------------------------------
-		if(iStream == 1) cudaStreamSynchronize(m_aStreams[0]);
-		cudaMemcpyAsync(gCmpBuf, pCmpFrm, tBytes,
-		   cudaMemcpyDefault, m_aStreams[iStream]);
-		if(iStream == 1) cudaStreamSynchronize(m_aStreams[1]);
+		if(iStream == 1) hipStreamSynchronize(m_aStreams[0]);
+		hipMemcpyAsync(gCmpBuf, pCmpFrm, tBytes,
+		   hipMemcpyDefault, m_aStreams[iStream]);
+		if(iStream == 1) hipStreamSynchronize(m_aStreams[1]);
 		//----------------------------------------------------
 		// calculate the whole sum
 		//----------------------------------------------------
